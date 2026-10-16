@@ -12,3 +12,8 @@ Hướng hiện tại: AWS, LLM qua Bedrock đa model (Claude cho tác vụ khó
 6. Viết bằng tiếng Việt, ngắn gọn, có bảng. Kết quả cuối phải tự đối chiếu với ràng buộc cứng H1-H8 trong `vbot-capstone.html`.
 7. Khi xong: viết dòng `TRẠNG THÁI: XONG` ở cuối file đầu ra của mình, rồi trả lời ngắn gọn (tối đa 10 dòng): đã làm gì, 3 điểm chưa chắc lớn nhất, 3 việc người dùng cần làm tay (ví dụ chụp ảnh bằng chứng).
 8. Nếu bị chặn bởi hộp thoại xin quyền, dừng và chờ; đừng tìm cách vòng qua.
+
+## Quy tắc bằng chứng (bổ sung theo yêu cầu của người dùng)
+9. Mọi thông số tra cứu được dùng để tính tiền hoặc để biện luận (đơn giá, SKU, region, TTL cache, ngưỡng token tối thiểu, hạn mức/quota, giới hạn dịch vụ, model có mặt ở region nào) phải: (a) gắn link nguồn chính thức ngay trong ô Bằng chứng của dòng báo giá hoặc ngay cạnh câu trong tài liệu; (b) có mã ảnh `E..` ghi trong `evidence/INDEX.md` kèm đường dẫn file ảnh dự kiến `evidence/E-xx.png`, nêu rõ phải chụp cái gì (tên dịch vụ, SKU, region, đơn giá, dòng chữ cần thấy trong ảnh); (c) ghi ngày tra.
+10. Link phải là trang người đọc mở được và thấy số trên màn hình (trang giá hoặc tài liệu chính thức, hoặc bản tính Pricing Calculator đã lưu). File Price List JSON chỉ là nguồn phụ để tính, KHÔNG thay thế trang để chụp ảnh. Nếu chỉ có JSON thì ghi thêm trang tương ứng.
+11. Agent không chụp được ảnh: ghi trạng thái `chưa chụp` cạnh mã ảnh. Chỉ người dùng chụp. Thông số nào chưa có link hoặc ảnh thì đánh dấu `CHƯA CÓ BẰNG CHỨNG`, không được dùng như sự thật đã kiểm.
