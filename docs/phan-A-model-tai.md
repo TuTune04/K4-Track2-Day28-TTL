@@ -6,7 +6,7 @@ Ngày tra giá: **2026-10-16**. Region mặc định: ap-southeast-1 (Singapore)
 
 1. **Nguồn giá:** đã kiểm trên **bảng giá chính thức dạng JSON của AWS (Price List bulk API)**, không phải từ trang tổng hợp bên thứ ba. Chưa mở được trang giá bằng trình duyệt để chụp ảnh, nên **các dòng báo giá còn thiếu ảnh bằng chứng** (xem mục 9).
 2. **Phát hiện lớn nhất:** ở Singapore, bảng giá chính thức **không có DeepSeek, Qwen** (chỉ có ở Sydney, Jakarta, Tokyo, Mumbai, Mỹ...). Trong khi **Claude Haiku 5.5 chỉ $0,10 / $0,50 mỗi triệu token** (vào / ra), rẻ hơn cả DeepSeek V3.2 ($0,64 / $1,91 ở Sydney). Vì vậy **hướng "model mở rẻ hơn" của bản nghiên cứu cũ không còn đúng**: đường chính nên là **Claude Haiku 5.5 + Sonnet 5.5 (+ Opus 5.5 khi cần), tất cả qua Bedrock**. Model mở chỉ giữ làm phương án so sánh.
-3. **Tiền LLM theo kịch bản được chọn (S3, đã tính 10% lượt Haiku cấp 3-4 leo thang lên Sonnet): ~$9.129/tháng** (token) + ~$1.100 ảnh. **S3 chỉ được giữ nếu bộ test H8 đạt ≥95% ở mọi cấp**; nếu không thì lùi về S2 (~$15.059). Baseline cũ trong xlsx: $40.780. Tổng cột chi phí `baogia-A.tsv`: $10.329,00 (trước đó $16.259,10).
+3. **Tiền LLM theo kịch bản được chọn (S3, đã tính 10% lượt Haiku cấp 3-4 leo thang lên Sonnet): ~$8.125/tháng** (token; cache tính riêng theo từng cấp, mục 2.2b) + ~$1.100 ảnh. **S3 chỉ được giữ nếu bộ test H8 đạt ≥95% ở mọi cấp**; nếu không thì lùi về S2 (~$13.914). Baseline cũ trong xlsx: $40.780. Tổng cột chi phí `baogia-A.tsv`: **$9.325,33** (bước 1: $10.329,00; ban đầu: $16.259,10).
 4. **Không nên tự host GPU**: máy GPU duy nhất định giá được ở Singapore (p4de.24xlarge) tốn $14.492–$48.087/tháng cho 2 máy, cao hơn tiền API cho toàn bộ lưu lượng với model mở ($4.055) và với kịch bản Haiku/Sonnet.
 5. **Gateway:** LiteLLM (bản mã nguồn mở) chạy Fargate ARM 2 task, **~$93,65/tháng** (2 task, 2 vCPU/4 GB giờ hành chính, 1 vCPU/2 GB ngoài giờ).
 6. **Cần quyết định của nhóm:** (a) chốt model tham chiếu H8 (đề xuất Sonnet 5.5), (b) chấp nhận Bedrock "global" (rẻ hơn ~10% nhưng xử lý ở region nào cũng được) hay "geo APAC" (+10%, ~+$1.500/tháng) cho H1.
@@ -71,12 +71,12 @@ Nguồn (đều chính thức, tra 2026-10-16):
 | 1 Email, hỏi đáp | **Haiku 5.5** (100%) | Sonnet 5.5 khi kiểm tra đầu ra thất bại hoặc người dùng bấm "viết lại" | Ngắn, nhiều request (45%), Haiku 5.5 chỉ ~$186/tháng | Tiếng Việt văn phong công sở; RAG trả lời sai nguồn |
 | 2 Tài liệu, slide | **Haiku 5.5** (100%) | Sonnet 5.5 nếu cấp 2 không đạt H8 (lùi về S2: 70% Haiku / 30% Sonnet) | Văn bản có cấu trúc, rẻ nhất: ~$298/tháng | Tài liệu dài, tờ trình có thể dưới 95%; **S3 không tính leo thang ở cấp này** (nếu có 10% leo thang: +$588/tháng) |
 | 3 Dữ liệu, code | **Haiku 5.5 70% / Sonnet 5.5 30%** (bài khó, nhiều bước chọn Sonnet từ đầu) | **10% lượt Haiku chạy lại trên Sonnet** khi unit test/kiểm tra kết quả thất bại; Opus 5.5 cho bài khó nhất | Code kiểm bằng unit test nên phát hiện lỗi và đo được | Tỉ lệ thất bại thật có thể cao hơn 10% |
-| 4 Agent dự án | **Haiku 5.5 70% / Sonnet 5.5 30%** (lập kế hoạch, quyết định ghi chọn Sonnet; đọc, tóm tắt, gọi công cụ đơn giản chọn Haiku) | **10% lượt Haiku chạy lại trên Sonnet** (cả lượt, không dùng lại cache giữa hai model); vượt 2 lần lỗi công cụ thì đẩy bước đó lên Sonnet | Chiếm ~62% tiền token của S3 | Agent hỏng giữa chừng; vượt 10 phút (H6) vì chạy lại; phải đo tỉ lệ hoàn thành |
+| 4 Agent dự án | **Haiku 5.5 70% / Sonnet 5.5 30%** (chọn model theo **cả lượt chạy**, không đổi model giữa các bước vì cache chỉ dùng được trong cùng một model; lượt có lập kế hoạch/quyết định ghi phức tạp chọn Sonnet) | **10% lượt Haiku chạy lại trên Sonnet** (cả lượt, không dùng lại cache giữa hai model); vượt 2 lần lỗi công cụ thì đẩy bước đó lên Sonnet | Chiếm ~62% tiền token của S3 | Agent hỏng giữa chừng; vượt 10 phút (H6) vì chạy lại; phải đo tỉ lệ hoàn thành |
 | 5 Thiết kế | **Sonnet 5.5** viết mô tả/sơ đồ + **Titan Image V2** sinh ảnh | Opus 5.5 nếu điểm thiết kế thấp | Chỉ 5% request; chất lượng thẩm mỹ cần mạnh vừa | Titan Image chất lượng thấp, ảnh phải gọi region Mỹ |
 
-**Tỉ lệ leo thang giả định: 10% số lượt Haiku của cấp 3 và cấp 4 (tương đương 7% số request của mỗi cấp) phải chạy lại trên Sonnet.** Căn cứ: đây là **giả định khởi đầu, chưa đo**; chọn 10% vì (a) với code có unit test và agent có kiểm tra trạng thái cuối, một model nhỏ trượt cỡ vài chục phần trăm bài khó nhưng ta đã chuyển trước 30% bài khó sang Sonnet, phần còn lại là bài dễ hơn; (b) 10% đủ lớn để mô hình chi phí không quá lạc quan (leo thang 0% cho $7.844, 10% cho $9.129). Tính **đầy đủ**: lượt Haiku thất bại vẫn bị tính (đã nằm trong 70% Haiku), và lượt chạy lại trên Sonnet tính đủ token vào/ra (không giảm vì lỗi sớm, không dùng lại cache chéo model) nên là cận trên. Con số thật sẽ lấy từ bộ chỉnh H8 (mục 3): đếm tỉ lệ Haiku trượt kiểm tra tự động.
+**Tỉ lệ leo thang giả định: 10% số lượt Haiku của cấp 3 và cấp 4 (tương đương 7% số request của mỗi cấp) phải chạy lại trên Sonnet.** Căn cứ: đây là **giả định khởi đầu, chưa đo**; chọn 10% vì (a) với code có unit test và agent có kiểm tra trạng thái cuối, một model nhỏ trượt cỡ vài chục phần trăm bài khó nhưng ta đã chuyển trước 30% bài khó sang Sonnet, phần còn lại là bài dễ hơn; (b) 10% đủ lớn để mô hình chi phí không quá lạc quan (leo thang 0% cho $7.022, 10% cho $8.125, theo cache từng cấp ở mục 2.2b). Tính **đầy đủ**: lượt Haiku thất bại vẫn bị tính (đã nằm trong 70% Haiku), và lượt chạy lại trên Sonnet tính đủ token vào/ra (không giảm vì lỗi sớm, không dùng lại cache chéo model) nên là cận trên. Con số thật sẽ lấy từ bộ chỉnh H8 (mục 3): đếm tỉ lệ Haiku trượt kiểm tra tự động.
 
-**Phương án lùi về S2** (cấp 2 = 70% Haiku / 30% Sonnet; cấp 3 = 100% Sonnet; cấp 4 = 50/50; ~$15.059): dùng nếu bất kỳ cấp 2, 3, 4 không đạt 95% hoặc tỉ lệ leo thang đo được > 30% (khi đó S3 đắt $11.699, rẻ hơn S2 chỉ $3.360 mà rủi ro cao).
+**Phương án lùi về S2** (cấp 2 = 70% Haiku / 30% Sonnet; cấp 3 = 100% Sonnet; cấp 4 = 50/50; ~$13.914 với cache theo cấp): dùng nếu bất kỳ cấp 2, 3, 4 không đạt 95% hoặc tỉ lệ leo thang đo được > 30% (khi đó S3 đắt $10.331, rẻ hơn S2 chỉ $3.583 mà rủi ro cao).
 
 ### 2.2 Chạy lại ước tính chi phí LLM (công thức của `docs/uoc-luong-tai.xlsx`, đọc không sửa)
 
@@ -84,47 +84,97 @@ Công thức (sheet `TinhToan`): request/tháng = DAU × 25 × 22 × tỉ lệ c
 
 Hai cách tính trên giá chính thức Singapore:
 - **"Công thức xlsx":** chỉ trừ phần đọc cache (r = 50%), bỏ qua phí ghi cache.
-- **"Có phí ghi cache":** 50% đọc cache, **15% ghi cache** (giả định của Tài: mỗi lượt có phần mới phải ghi), 35% giá thường. Con số này mới dùng cho báo giá.
+- **"Có phí ghi cache":** 50% đọc cache, **15% ghi cache** (giả định của Tài: mỗi lượt có phần mới phải ghi), 35% giá thường. Dùng cho các hàng so sánh trong bảng này. **Báo giá dùng cache riêng theo từng cấp (mục 2.2b), không dùng 50/15 đồng nhất nữa.**
 
 | Kịch bản | Cấp 1 | Cấp 2 | Cấp 3 | Cấp 4 | Cấp 5 | Công thức xlsx | **Có phí ghi cache** |
 |---|---|---|---|---|---|---|---|
 | Baseline cũ trong xlsx (giá tham khảo) | 1,8k | 8,8k | 6,4k | 20,8k | 3,0k | $40.780 | n/a |
 | S6 toàn Sonnet 5.5 | 3,7k | 5,9k | 4,3k | 14,0k | 1,2k | $28.234 | $29.088 |
 | S1 an toàn: Haiku / Sonnet / Sonnet / Sonnet / **Opus** | 0,19k | 5,9k | 4,3k | 14,0k | 2,4k | $26.047 | $26.820 |
-| S2 (phương án lùi; chưa tính leo thang) | 0,19k | 2,0k | 4,3k | 7,4k | 1,2k | $14.612 | **$15.059** |
-| S3 cũ, **chưa** tính leo thang (chỉ để so sánh) | 0,19k | 0,3k | 1,5k | 4,7k | 1,2k | $7.601 | $7.844 |
-| **S3 được chọn** (cấp 2 100% Haiku; cấp 3-4: 70% Haiku / 30% Sonnet; **10% lượt Haiku cấp 3-4 leo thang**) | 0,19k | 0,3k | 1,76k | 5,69k | 1,2k | $8.843 | **$9.129** |
+| S2 (phương án lùi; chưa tính leo thang; cache đồng nhất 50/15) | 0,19k | 2,0k | 4,3k | 7,4k | 1,2k | $14.612 | **$15.059** |
+| S3 cũ, **chưa** tính leo thang, cache đồng nhất 50/15 (chỉ để so sánh) | 0,19k | 0,3k | 1,5k | 4,7k | 1,2k | $7.601 | $7.844 |
+| S3 bước 1 (cấp 2 100% Haiku; cấp 3-4: 70/30; 10% leo thang; cache đồng nhất 50/15) | 0,19k | 0,3k | 1,76k | 5,69k | 1,2k | $8.843 | $9.129 |
+| **S3 được chọn (bước 2): như trên nhưng cache theo từng cấp** (mục 2.2b) | 0,20k | 0,31k | 1,84k | 4,56k | 1,22k | n/a | **$8.125** |
 | S7 toàn Haiku 5.5 (cận dưới, khó đạt H8) | 0,19k | 0,3k | 0,2k | 0,7k | 0,06k | $1.440 | $1.483 |
 | S4 so sánh: cấp 2-4 DeepSeek V3.2 (Sydney, không cache), cấp 1 Haiku, cấp 5 Opus | 0,19k | 1,7k | 1,5k | 5,5k | 2,4k | $11.203 | $11.258 |
 | S5 so sánh: cấp 2-4 Qwen3-235B (Sydney) | 0,19k | 0,7k | 0,6k | 2,1k | 2,4k | $5.914 | $5.969 |
 
-(Đơn vị k = nghìn USD, cột cấp là cột "có phí ghi cache" trừ hàng baseline.) S4, S5 chỉ để so sánh: **S3 (toàn Claude, $9.129) đã rẻ hơn S4 ($11.258)** và model mở không có cache, không có ở Singapore, chưa đo chất lượng agent.
+(Đơn vị k = nghìn USD, cột cấp là cột "có phí ghi cache" trừ hàng baseline.) S4, S5 chỉ để so sánh: **S3 (toàn Claude, $8.125; $9.129 nếu dùng cache đồng nhất như S4) đã rẻ hơn S4 ($11.258)** và model mở không có cache, không có ở Singapore, chưa đo chất lượng agent.
 
-Phân rã S3 (cơ sở cho báo giá, đã gồm leo thang): Haiku 5.5 nhận 8.580 triệu token vào, 1.273,25 triệu token ra (= $504,08 + $636,63); Sonnet 5.5 nhận 3.382,5 triệu token vào, 418,275 triệu token ra (= $3.805,31 + $4.182,75; trong đó phần leo thang (7% request của cấp 3 và của cấp 4, 11.550 request mỗi cấp) là 577,5 triệu token vào, 63,5 triệu token ra, ~$1.285). Token Haiku được tính cả lượt thất bại. Tổng token/tháng của lưu lượng gốc: 11,39 tỷ vào, 1,63 tỷ ra; token thực gọi lên model lớn hơn vì chạy lại.
+Phân rã S3 (cơ sở cho báo giá, đã gồm leo thang, cache theo cấp): Haiku 5.5 nhận 8.580 triệu token vào, 1.273,25 triệu token ra (= $444,73 + $636,63); Sonnet 5.5 nhận 3.382,5 triệu token vào, 418,275 triệu token ra (= $2.861,03 + $4.182,75; trong đó phần leo thang là 7% request của cấp 3 và của cấp 4, 11.550 request mỗi cấp = 577,5 triệu token vào, 63,5 triệu token ra). Token Haiku được tính cả lượt thất bại. Tổng token/tháng của lưu lượng gốc: 11,39 tỷ vào, 1,63 tỷ ra; token thực gọi lên model lớn hơn vì chạy lại.
 
-### 2.3 Độ nhạy và đòn bẩy (cho slide, mỗi số kèm USD, kịch bản S3 đã tính leo thang = $9.129)
+### 2.2b Giả định cache theo từng cấp (bước 2: thay thế 50% đọc / 15% ghi đồng nhất)
+
+**Thiết kế prompt để cache được** (thứ tự cố định, nội dung ổn định đứng trước): (1) system prompt + định nghĩa công cụ + quy tắc guardrail, **giống nhau cho mọi người dùng**; (2) khối dữ liệu của phiên (tài liệu nguồn, dữ liệu tải lên, bản nháp, mô tả thiết kế); (3) lịch sử hội thoại / các bước agent đã chạy; (4) tin nhắn mới và kết quả công cụ mới (**không cache**). Đặt điểm cache cuối mỗi khối chỉ khi khối đó có khả năng được dùng lại. Mỗi model có cache riêng, nên **Haiku và Sonnet không dùng chung cache**: vì vậy định tuyến theo cả lượt chạy (đã sửa ở mục 2.1). Mức tối thiểu 512 token mỗi điểm cache (tài liệu AWS) đều đạt.
+
+**Tham số và công thức** (I = token vào mỗi request):
+
+| Ký hiệu | Nghĩa | Căn cứ |
+|---|---|---|
+| S | Tiền tố chung mọi người dùng (system, công cụ) | Cùng nội dung cho mọi request của cấp đó |
+| h = 95% | Tỉ lệ S còn nóng khi cần | Lưu lượng trung bình giờ hành chính = 1,1 triệu / (22 × 10 × 3.600 giây) = **1,39 request/giây**, khoảng cách giữa hai request cùng cấp ≪ TTL 5 phút nên S gần như luôn được làm mới; trừ 5% vì tài liệu AWS nói cầu cao điểm và định tuyến liên vùng "có thể làm tăng số lần ghi cache", và khi triển khai prompt mới |
+| D | Khối dữ liệu của phiên, ghi lần đầu | Chỉ cache nếu có khả năng dùng lại |
+| H_prev, H_inc | Lịch sử mang sang lượt sau / phần mới thêm vào cache mỗi lượt kế tiếp | |
+| q | Xác suất người dùng gửi tin tiếp theo **trong 5 phút** sau tin trước (nếu quá 5 phút, cache hết hạn và phải ghi lại) | Suy đoán hành vi: đọc kết quả, sửa rồi gửi tiếp; **chưa đo**. T1 0,25; T2 0,35; T3 0,50; T5 0,50 |
+
+- Đọc: **r = h × (S + q × (D + H_prev)) / I**
+- Ghi: **w = [ (1 − h) × S + (1 − q × h) × D + q × H_inc ] / I**
+- Phần còn lại (1 − r − w) tính giá thường. Điểm hòa vốn khi ghi một khối: ghi đắt hơn giá thường 25% (Sonnet 2,5 so với 2,0; Haiku 0,125 so với 0,10), mỗi lần đọc trúng tiết kiệm ~90–95% → chỉ nên ghi khi **xác suất dùng lại ≳ 28%**. Vì vậy cấp 1 **không** cache kết quả RAG (khác nhau mỗi truy vấn, xác suất dùng lại thấp); các cấp 2, 3, 5 cache khối dữ liệu (q 0,35–0,50 cao hơn ngưỡng, cấp 2 chỉ hơi cao hơn).
+
+| Cấp | I | S | D | H_prev | H_inc | q | **r (đọc)** | **w (ghi)** | Giá thường |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 Email, hỏi đáp | 3.000 | 1.000 | 0 (RAG đổi mỗi lần) | 800 | 600 | 0,25 | **38%** | **7%** | 55% |
+| 2 Tài liệu, slide | 6.000 | 1.500 | 3.000 | 1.000 | 1.000 | 0,35 | **46%** | **40%** | 14% |
+| 3 Dữ liệu, code | 10.000 | 2.000 | 5.000 | 1.000 | 1.000 | 0,50 | **48%** | **32%** | 20% |
+| 4 Agent dự án | 40.000 | 2.500 | 1.500 (giả định: nhiệm vụ) | ngữ cảnh lớn dần | mỗi bước | xem dưới | **75%** | **25%** | 0% |
+| 5 Thiết kế | 6.000 | 1.500 | 2.500 | 1.000 | 800 | 0,50 | **51%** | **30%** | 19% |
+
+Ví dụ cấp 3: r = 0,95 × (2.000 + 0,5 × 6.000) / 10.000 = 47,5%; w = [0,05 × 2.000 + (1 − 0,475) × 5.000 + 0,5 × 1.000] / 10.000 = 32,3%.
+
+**Cấp 4 (agent nhiều bước, tính riêng):** 40.000 token vào là tổng của k = 6 bước (≈ 5 lệnh gọi connector + 1 bước tổng hợp). Bước 1 có ngữ cảnh I₁ = 4.000 (S = 2.500 + nhiệm vụ 1.500); mỗi bước thêm d token kết quả công cụ và suy luận: 6 × 4.000 + 15 × d = 40.000 ⇒ d ≈ 1.067. Dùng điểm cache cuốn chiếu (cuối ngữ cảnh mỗi bước): bước i đọc lại toàn bộ ngữ cảnh bước i−1 và ghi phần mới.
+- Đọc: h × (S + I₁ + … + I₅) = 0,95 × (2.500 + 30.667) = 31.508 token (78,8%).
+- Ghi: (1 − h) × S + nhiệm vụ 1.500 + 5 × 1.067 + (1 − h) × 30.667 = 125 + 1.500 + 5.333 + 1.533 = 8.492 token (21,2%).
+- **Tạm dừng chờ người dùng xác nhận (H4):** giả định 50% lượt có bước cần xác nhận trước khi ghi ra ngoài, và 40% người dùng trả lời sau hơn 5 phút ⇒ cache hết hạn, ngữ cảnh ~7.200 token phải ghi lại: 0,5 × 0,4 × 7.200 = 1.440 token chuyển từ đọc sang ghi.
+- Kết quả: đọc 30.068 (75,2%), ghi 9.932 (24,8%) ⇒ **r = 75%, w = 25%**.
+- **Giữ cao có chủ ý:** w của cấp 4 (25%) **cao hơn** giả định cũ (15%), vì ngữ cảnh lớn dần nên mỗi bước đều phải ghi phần mới, bước cuối ghi mà không bao giờ được đọc lại, và các lượt phải chờ xác nhận mất cache. Đây là nguyên nhân chính khiến khoản ghi cache lớn, không giảm được bằng tinh chỉnh con số.
+- Lượt Haiku leo thang lên Sonnet được tính cùng r và w của cấp (phải ghi lại ngữ cảnh trên Sonnet, nên là cận trên).
+
+**Hiệu ứng lên chi phí (S3 có leo thang 10%):** giá input hiệu dụng mỗi triệu token: Haiku cũ 0,05875 → cấp 1 0,06755, cấp 2 0,0686, cấp 3 0,0648, cấp 4 0,03875; Sonnet cũ 1,125 → cấp 3 1,248, cấp 5 1,181, cấp 4 0,70. Tiền theo cấp (cache đồng nhất → cache theo cấp): cấp 1 $186 → $199, cấp 2 $298 → $311, cấp 3 $1.757 → $1.839, cấp 4 $5.692 → $4.561, cấp 5 $1.196 → $1.215. **Toàn bộ mức giảm ($9.129 → $8.125, −$1.004) đến từ cấp 4** (−$1.131); bốn cấp còn lại **tăng** +$127 vì ghi cache nhiều hơn 15%. Tiền ghi cache là **$2.532/tháng (31% tiền token)**: đây là khoản lớn, không phải "nhiễu".
+
+**Cách đo hit rate thực tế để hội đồng kiểm chứng:**
+1. Mỗi lời gọi Bedrock (Converse) trả về `usage.cacheReadInputTokens`, `usage.cacheWriteInputTokens`, `usage.inputTokens` (tài liệu AWS: tổng token vào = `inputTokens` + `cacheReadInputTokens` + `cacheWriteInputTokens`). Gateway (mục 5) ghi ba trường này cho từng request cùng cấp, model, session_id, thời điểm → CloudWatch/log. (Tên metric CloudWatch riêng của Bedrock cho cache **chưa kiểm**; lấy từ phản hồi API là chắc chắn.)
+2. Báo cáo theo cấp và theo model: **r_đo = Σ cacheRead / (Σ inputTokens + Σ cacheRead + Σ cacheWrite)**, **w_đo = Σ cacheWrite / cùng mẫu số**; thêm hit rate riêng của tiền tố S (kỳ vọng ≥ 90%) và khoảng cách giữa hai tin của cùng phiên (để kiểm q).
+3. Trước khi bảo vệ: chạy mô phỏng 30–60 phút với 20–30 phiên giả lập mỗi cấp, khoảng cách tin theo phân bố nghĩ ra (có cả > 5 phút), lấy r_đo và w_đo thay cho bảng trên; nếu lệch hơn ±5 điểm ở cấp nào thì tính lại tiền bằng công thức ở mục này.
+4. Khi chạy thật: cảnh báo nếu r_đo của cấp 4 < 65% hoặc w_đo > 35% (bảng 2.3 cho thấy mức thiệt hại).
+
+### 2.3 Độ nhạy và đòn bẩy (cho slide, mỗi số kèm USD; kịch bản S3 = leo thang 10%, cache theo cấp = $8.125)
 
 | Thay đổi | Tiền LLM/tháng | Chênh |
 |---|---|---|
-| Tỉ lệ leo thang 0% | $7.844 | −$1.285 |
-| Leo thang 5% | $8.486 | −$643 |
-| **Leo thang 10% (mặc định)** | $9.129 | 0 |
-| Leo thang 20% | $10.414 | +$1.285 |
-| Leo thang 30% | $11.699 | +$2.570 |
-| Thêm 10% leo thang ở cấp 2 | $9.717 | +$588 |
-| Cache đọc 0% | $12.728 | +$3.599 |
-| Cache đọc 30% | $10.569 | +$1.440 |
-| **Cache đọc 50% (mặc định)** | $9.129 | 0 |
-| **Cache đọc 80%** | $6.969 | **−$2.160** |
-| Cache theo từng cấp (cấp 1: 30%, cấp 2-3: 40%, cấp 4: 80%, cấp 5: 30%) | $7.826 | −$1.303 |
-| Giá token −50% | $4.564 | −$4.565 |
-| Giá token +30% | $11.867 | +$2.738 |
-| Dùng geo APAC thay global (+10%) | $10.042 | +$913 |
-| Lùi về S2 (nếu H8 không đạt) | $15.059 | +$5.930 |
+| Tỉ lệ leo thang 0% | $7.022 | −$1.103 |
+| Leo thang 5% | $7.574 | −$551 |
+| **Leo thang 10% (mặc định)** | $8.125 | 0 |
+| Leo thang 20% | $9.228 | +$1.103 |
+| Leo thang 30% | $10.331 | +$2.206 |
+| Thêm 10% leo thang ở cấp 2 | $8.740 | +$615 |
+| **Hit rate đọc thấp hơn 10 điểm ở mọi cấp**, phần mất phải ghi lại (cache hết hạn nhiều hơn) | $9.036 | **+$911** |
+| Hit rate đọc thấp hơn 20 điểm, phần mất phải ghi lại | $9.946 | +$1.821 |
+| Đọc thấp hơn 10 điểm, nhưng không ghi (bỏ điểm cache, trả giá thường) | $8.845 | +$720 |
+| Đọc thấp hơn 20 điểm, không ghi | $9.565 | +$1.440 |
+| Cấp 4 xấu: r 55%, w 45% (nhiều lượt chờ xác nhận) | $9.404 | +$1.279 |
+| Cấp 4 tốt: r 85%, w 15% | $7.486 | −$639 |
+| Phần ghi cache nhiều hơn 1,5 lần ở mọi cấp | $8.209 | +$84 |
+| Phần ghi cache giảm một nửa ở mọi cấp | $7.872 | −$253 |
+| Tắt cache hoàn toàn | $12.442 | +$4.317 |
+| Dùng lại giả định cũ 50% đọc / 15% ghi đồng nhất | $9.129 | +$1.004 |
+| Giá token −50% | $4.063 | −$4.062 |
+| Giá token +30% | $10.563 | +$2.438 |
+| Dùng geo APAC thay global (+10%) | $8.938 | +$813 |
+| Lùi về S2 (nếu H8 không đạt; cache theo cấp) | $13.914 | +$5.789 |
 | Sinh ảnh giảm 2 → 1 ảnh/request | ảnh $550 | −$550 |
-| DAU gấp đôi (4.000) | ~$18.260 (tuyến tính) | +$9.129; gateway gần như cố định |
+| DAU gấp đôi (4.000) | ~$16.250 (tuyến tính) | +$8.125; gateway gần như cố định |
 
-Nhận xét: **cấp 4 (~62% tiền) và cấp 3 (~19%) quyết định hóa đơn**; Sonnet chiếm 87% tiền token của S3. Từ S2 sang S3 tiết kiệm $5.930/tháng **sau khi đã tính leo thang**, nên mọi chuyển đổi **phải có số đo H8 (mục 3)** mới được tính.
+Nhận xét: **cấp 4 (~56% tiền) và cấp 3 (~23%) quyết định hóa đơn**; Sonnet chiếm 87% tiền token. Rủi ro hit rate: nếu cache hết hạn nhiều hơn dự kiến, tiền tăng $0,7–1,8 nghìn mỗi 10–20 điểm, **nhỏ hơn rủi ro leo thang và rủi ro H8**; rủi ro lớn nhất về cache là cấp 4 (nhiều bước chờ xác nhận). Từ S2 sang S3 tiết kiệm $5.789/tháng **sau khi đã tính leo thang và cache theo cấp**; mọi chuyển đổi **phải có số đo H8 (mục 3)** mới được tính.
 
 ### 2.4 Giả định trong `uoc-luong-tai.xlsx` nên sửa (Tài không sửa file; đề xuất cho Tú)
 
@@ -132,8 +182,8 @@ Nhận xét: **cấp 4 (~62% tiền) và cấp 3 (~19%) quyết định hóa đ�
 |---|---|---|
 | Bảng giá model (GiaDinh A15:E18) | Lấy từ web bên thứ ba, nay đã có giá chính thức | small = Haiku 5.5: 0,10/0,50; medium = Sonnet 5.5: 2/10; large = Opus 5.5: 4/20. Bỏ hoặc đổi dòng `open` thành DeepSeek V3.2 Sydney 0,6386/1,9055 |
 | Hệ số cache đọc 0,1 chung (B11) | Sonnet 5.5 và Opus 5.5 là 0,05; Haiku 5.5 là 0,1 | Mỗi model một hệ số, hoặc ghi giá cache trực tiếp |
-| Công thức bỏ phí ghi cache | Thấp hơn thực tế ~3% (S3: +$286) | Thêm cột "tỉ lệ ghi cache" và giá ghi 1,25× |
-| Tỉ lệ cache 50% đồng nhất (B10) | Agent cấp 4 có hit cao hơn, email cấp 1 thấp hơn | Cache theo từng cấp (mục 2.3) |
+| Công thức bỏ phí ghi cache | Với cache theo cấp, **ghi cache là $2.532/tháng (31% tiền token)**; bỏ qua sẽ thấp hơn thực tế nhiều | Thêm cột "tỉ lệ ghi cache" và giá ghi 1,25× |
+| Tỉ lệ cache 50% đồng nhất (B10) | Cấp 4 có hit cao (75%) nhưng ghi cao (25%); cấp 1 hit thấp (38%) | Thêm cột r và w theo từng cấp (bảng mục 2.2b) |
 | Cấp 4: 40K token vào, 4K ra | Là tổng các bước; tách ra bao nhiêu bước và bao nhiêu bước dùng Haiku/Sonnet | Thêm cột "số bước", "% bước Haiku" |
 | Mỗi request chỉ một lớp model | Thực tế có leo thang Haiku→Sonnet, tạo chi phí gấp đôi một số request | Thêm cột "tỉ lệ leo thang" và cộng chi phí lượt chạy lại. **S3 được chọn đã tính 10% ở cấp 3-4** (mục 2.1); S2 và các kịch bản S1, S4-S7 trong bảng 2.2 chưa tính |
 | Embedding, rerank, guardrail chưa có trong tính toán | Dòng tiền nhỏ nhưng báo giá bắt buộc | Mục 5; guardrail là việc của Long |
@@ -165,7 +215,7 @@ Nhận xét: **cấp 4 (~62% tiền) và cấp 3 (~19%) quyết định hóa đ�
 - S3 chỉ được giữ nếu **R ≥ 0,95 trên bộ giữ lại ở cả cấp 1-5** (với cấp 2: 100% Haiku; cấp 3-4: hệ thống 70/30 có leo thang, đo cả pipeline chứ không đo riêng Haiku).
 - Đo thêm ba số cho cấp 3 và 4 trên bộ chỉnh: (1) **tỉ lệ lượt Haiku trượt kiểm tra tự động** (unit test cấp 3; kiểm tra trạng thái cuối cấp 4) → thay cho giả định 10%; (2) tỉ lệ cấp 4 vượt 10 phút khi tính cả chạy lại; (3) điểm của hệ thống so với Sonnet 100%.
 - **Quy tắc lùi:** cấp nào R < 0,95 thì chuyển cấp đó về cấu hình S2 (cấp 2: 70/30; cấp 3: 100% Sonnet; cấp 4: 50/50), rồi đo lại một lần. Nếu tỉ lệ leo thang đo được > 30% thì lùi cả cấp 3-4 về S2, vì S3 chỉ còn rẻ hơn $3.360 mà tăng rủi ro.
-- Báo giá hiện ghi S3. Nếu không kịp đo trong buổi học: nói rõ với hội đồng tỉ lệ Haiku/leo thang là **giả định chưa đo** và nêu sẵn S2 ($15.059) là phương án lùi; hoặc nộp S2 để chắc điểm chất lượng.
+- Báo giá hiện ghi S3. Nếu không kịp đo trong buổi học: nói rõ với hội đồng tỉ lệ Haiku/leo thang là **giả định chưa đo** và nêu sẵn S2 ($13.914) là phương án lùi; hoặc nộp S2 để chắc điểm chất lượng.
 
 **Việc chưa làm:** **chưa có bộ câu hỏi nào được viết, chưa chạy lần nào**.
 
@@ -187,19 +237,19 @@ Nhận xét: **cấp 4 (~62% tiền) và cấp 3 (~19%) quyết định hóa đ�
 
 | Phương án | Tiền/tháng | So với API cùng lưu lượng |
 |---|---|---|
-| Tự host 2 máy p4de, chạy 24/7 (tối thiểu HA) | **$48.087** | gấp 5,3 lần S3 |
-| 2 máy p4de, cam kết 1 năm | $30.488 | gấp 3,3 lần S3 |
-| 2 máy p4de, chỉ giờ hành chính (220 giờ), khởi động mất 15–30 phút (chưa đo) | **$14.492** | gấp 1,6 lần S3, và không đủ cho burst |
-| 4 máy p4de, chỉ giờ hành chính | $28.984 | gấp 3,2 lần S3 |
+| Tự host 2 máy p4de, chạy 24/7 (tối thiểu HA) | **$48.087** | gấp 5,9 lần S3 |
+| 2 máy p4de, cam kết 1 năm | $30.488 | gấp 3,8 lần S3 |
+| 2 máy p4de, chỉ giờ hành chính (220 giờ), khởi động mất 15–30 phút (chưa đo) | **$14.492** | gấp 1,8 lần S3, và không đủ cho burst |
+| 4 máy p4de, chỉ giờ hành chính | $28.984 | gấp 3,6 lần S3 |
 | API: toàn bộ lưu lượng bằng Qwen3-235B (Sydney, không cache) | $4.055 | |
 | API: toàn bộ bằng DeepSeek V3.2 (Sydney) | $10.373 | |
-| API: S3 được chọn (Claude, gồm leo thang) | $9.129 | |
-| API: S2 (Claude, phương án lùi) | $15.059 | |
+| API: S3 được chọn (Claude, gồm leo thang, cache theo cấp) | $8.125 | |
+| API: S2 (Claude, phương án lùi, cache theo cấp) | $13.914 | |
 | API: toàn Haiku 5.5 | $1.483 | |
 
 **Điểm hòa vốn:** tự host chỉ rẻ hơn khi tiền API cho cùng lưu lượng vượt chi phí cố định của số máy cần thiết.
 - So với API Qwen3-235B ($4.055 cho 100% lưu lượng ở mức hiện tại): 2 máy giờ hành chính ($14.492) hòa vốn ở **~3,6× lưu lượng (~7.100 DAU)**, nhưng ở mức đó cần nhiều máy hơn nên điểm hòa vốn thực tế cao hơn nữa.
-- So với S3 (Claude, $9.129): tự host 2 máy giờ hành chính ($14.492) đắt hơn 1,6 lần và **không đạt chất lượng và HA tương đương** (chưa có cache, chưa đo H8, chỉ 2 máy).
+- So với S3 (Claude, $8.125): tự host 2 máy giờ hành chính ($14.492) đắt hơn 1,8 lần và **không đạt chất lượng và HA tương đương** (chưa có cache, chưa đo H8, chỉ 2 máy).
 - Giá token +30% hoặc −50% (xem mục 2.3): API vẫn rẻ hơn hoặc ngang tự host trong mọi trường hợp; giảm 50% càng làm lợi thế API lớn hơn.
 - Chưa tính: kỹ sư vận hành (`ops_labor`), thời gian tải model, giám sát GPU, vá lỗi.
 
@@ -245,9 +295,9 @@ Chọn LiteLLM vì đề yêu cầu quota theo người và đơn vị (H8) và 
 
 ## 7. Điểm chưa chắc lớn nhất
 
-1. **Chất lượng Haiku 5.5 ở cấp 2–4 (H8) chưa đo**: mức tiết kiệm từ S2 ($15.059) xuống S3 ($9.129) và từ "toàn Sonnet" (S6 $29.088) đều dựa vào giả thuyết này. Nếu phải lùi về S2 thì +$5.930/tháng; nếu cấp 3-4 phải về Sonnet hẳn, tiền LLM khoảng $15–29k.
+1. **Chất lượng Haiku 5.5 ở cấp 2–4 (H8) chưa đo**: mức tiết kiệm từ S2 ($13.914) xuống S3 ($8.125) và từ "toàn Sonnet" (S6 $29.088) đều dựa vào giả thuyết này. Nếu phải lùi về S2 thì +$5.789/tháng; nếu cấp 3-4 phải về Sonnet hẳn, tiền LLM khoảng $15–29k.
 2. **Hạn mức Bedrock (token/phút) và model access trong tài khoản thật** chưa kiểm; có thể cần xin tăng hạn mức, và global profile có thể không bật được theo chính sách tổ chức (SCP).
-3. **Giả định tải:** 25 request/ngày, tỉ lệ cache 50%/ghi cache 15%, tỉ lệ leo thang 10% (giả định chưa đo; mỗi +10% là +$1.285). Cấp 2 chạy 100% Haiku và **không** có leo thang trong S3 (thêm 10% thì +$588). Hội đồng sẽ chất vấn.
+3. **Giả định tải và cache:** 25 request/ngày; tỉ lệ cache theo cấp (mục 2.2b) là **suy ra từ thiết kế và hành vi người dùng đoán, chưa đo**, đặc biệt q (xác suất gửi tin tiếp trong 5 phút) và tỉ lệ chờ xác nhận ở cấp 4; ghi cache chiếm 31% tiền token. Tỉ lệ leo thang 10% (chưa đo; mỗi +10% là +$1.103); cấp 2 chạy 100% Haiku và **không** có leo thang trong S3 (thêm 10% thì +$615). Hội đồng sẽ chất vấn.
 
 ## 8. Việc người dùng cần làm tay
 
