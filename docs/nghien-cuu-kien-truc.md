@@ -76,6 +76,65 @@ Bedrock Guardrails tính theo số đơn vị văn bản. Với 11,4 tỷ token 
 ### Vận hành (`ops_labor`)
 Nhiều khả năng là dòng lớn thứ hai hoặc thứ ba. Phải nêu số FTE và lý do (ví dụ 0,5–1 FTE SRE/MLOps kèm ca trực). Đừng đặt 0.
 
+## 2b. Đa model: Claude + model mã nguồn mở (Qwen, DeepSeek)
+
+**Kết luận: nên gọi đa model qua API trên cùng một cloud, và không tự host GPU.** Claude giữ các tác vụ cần mạnh; model mở (DeepSeek, Qwen) nhận phần lớn lượng token còn lại.
+
+### Ba cách dùng model Trung Quốc, và cách nào qua được H1/H5
+| Cách | Giá | Qua H1/H5? | Nhận xét |
+|---|---|---|---|
+| API gốc (DeepSeek, Alibaba Model Studio) | Rẻ nhất (xem bảng dưới) | **Rủi ro cao** | Dữ liệu tập đoàn rời khỏi AWS, ra máy chủ của hãng; phải có cam kết không lưu, không huấn luyện bằng văn bản; hội đồng dễ hỏi vấn đề dữ liệu ra nước ngoài. Không nên làm đường chính. |
+| **Trọng số mở chạy trên Bedrock** (DeepSeek, Qwen) | Thấp hơn Claude nhiều | **Có thể qua**, vì dữ liệu ở trong AWS và dùng chung IAM, VPC endpoint, log | **Đề xuất.** Cần xác nhận region và giá thực tế. |
+| Tự host trên GPU (EC2/EKS) | Chưa rẻ ở quy mô này | Qua (trong VPC của mình) | Xem mục tự host bên dưới. |
+
+### Giá tham khảo (USD / 1 triệu token, input / output)
+Tất cả là số tìm được trên web, **nhiều nguồn mâu thuẫn, chưa kiểm trên trang giá chính thức**. Chỉ dùng để chọn hướng, không để điền báo giá.
+
+| Model | Giá | Nguồn / mức tin cậy |
+|---|---|---|
+| Claude Haiku 4.5 | 1,00 / 5,00 | Tài liệu giá Anthropic; Bedrock có thể phụ phí vùng |
+| Claude Sonnet 4.6 | 3,00 / 15,00 | Tài liệu giá Anthropic; Bedrock vùng có thể 3,30 / 16,50 |
+| DeepSeek V3.1 trên Bedrock | ~0,60 / 1,73 | Trang giá AWS, dòng Sydney; Singapore chưa thấy |
+| DeepSeek-R1 trên Bedrock | ~1,35 / 5,40 | Nguồn bên thứ ba, chưa xác nhận |
+| DeepSeek V4 Flash / Pro (API gốc) | 0,14 / 0,28 và 1,74 / 3,48 | Tổng hợp bên thứ ba; mâu thuẫn về giá cache và khuyến mãi |
+| Qwen Flash / Plus / Max (Alibaba, Singapore) | từ 0,15 / 0,47 đến 2,00 / 6,00 | Tổng hợp bên thứ ba; mâu thuẫn |
+| Qwen3 trên Bedrock | **không tìm thấy giá** | Cần xem trong console Bedrock |
+
+### Hạn chế của model mở trên Bedrock (đã tìm thấy, cần xác nhận)
+- **Region:** DeepSeek V3.1 có ở Tokyo, Mumbai, Jakarta, Sydney, v.v.; Qwen3 có ở Ohio, Frankfurt, Jakarta. **Không thấy Singapore trong kết quả.** Nếu đúng, phải dùng cross-region inference hoặc đổi region chính (ví dụ Jakarta, Sydney) và nêu lý do ở H1. Độ trễ có thể ảnh hưởng H6 (p95 token đầu dưới 3 giây).
+- **Prompt cache:** chưa thấy xác nhận model mở trên Bedrock có prompt cache; bảng tính đang giả định **không có cache** cho lớp `open` (cột "Hỗ trợ prompt cache" bằng 0). Nếu có cache thì giá sẽ thấp hơn.
+- **Chất lượng agent:** DeepSeek/Qwen mạnh về code và suy luận nhưng gọi công cụ nhiều bước (cấp 4) kém ổn định hơn Claude trong nhiều báo cáo; **cần tự đo bằng bộ test của nhóm**, không tin số liệu leaderboard.
+- **Tiếng Việt:** cần thử riêng trên bộ câu hỏi nội bộ.
+
+### Kịch bản định tuyến (chạy bằng `docs/uoc-luong-tai.xlsx`, giá tham khảo ở trên)
+Lớp `open` = DeepSeek V3.1 trên Bedrock ở giá Sydney, không cache. Lớp `small` = Haiku, `medium` = Sonnet, `large` = Opus, có cache 50%.
+
+| Kịch bản | Cấp 1 | Cấp 2 | Cấp 3 | Cấp 4 | Cấp 5 | Tiền LLM/tháng |
+|---|---|---|---|---|---|---|
+| Baseline (Claude hết) | small | medium | medium | medium | large | **~$40.800** |
+| Hybrid 1: cấp 2-3 chuyển sang open | small | open | open | medium | large | ~$28.500 |
+| **Hybrid 2: cấp 2-4 chuyển sang open** | small | open | open | open | large | **~$12.900** |
+| Hybrid 3: gần như toàn open, Claude chỉ ở cấp 5 | open | open | open | open | medium | ~$11.100 |
+| Hybrid 2 nhưng cấp 4 chia 70% open, 30% Claude (tính tay) | small | open | open | 70/30 | large | ~$17.600 |
+
+Nhận xét:
+- Chuyển cấp 4 sang model mở tiết kiệm nhiều nhất (cấp 4 là ~51% baseline). Đây cũng là cấp có rủi ro chất lượng cao nhất; kịch bản 70/30 (agent mặc định chạy model mở, bước khó hoặc thử lại thất bại mới đẩy lên Claude) là điểm cân bằng hợp lý để thử trước.
+- Cấp 1 giữ Haiku vì Haiku có cache nên đã rẻ (~$1.800); chuyển sang model mở chỉ tiết kiệm thêm ~$600.
+- Cấp 5 (thiết kế, có sinh ảnh) nên giữ model mạnh. Chênh lệch ở cấp này nhỏ vì chỉ chiếm 5% request.
+- Nhờ routing, tiền LLM có thể giảm 55–70% so với baseline. Đây là ước tính từ giả định của nhóm; cần kiểm bằng giá chính thức và test chất lượng.
+
+### Tự host model mở trên GPU: vì sao chưa nên
+- Model lớn như DeepSeek V3.1 (khoảng 671 tỷ tham số) hoặc Qwen3-235B cần máy nhiều GPU (loại 8 GPU), và HA đòi hỏi tối thiểu 2 máy. Chưa tra giá, nhưng đây là loại máy rất đắt nếu chạy 24/7; ngay cả khi scale xuống ngoài giờ thì chi phí cố định vẫn cao.
+- Ở kịch bản hybrid 2, tiền model mở trên API chỉ khoảng $8.100/tháng cho cả cấp 2-4. Máy GPU lớn khó rẻ hơn mức này, chưa kể công vận hành (`ops_labor`) và độ phức tạp HA.
+- Model nhỏ (ví dụ Qwen3-32B) trên 1-2 GPU phổ thông thì khả thi về giá, nhưng chất lượng thấp hơn, và vẫn phải đo H8.
+- Chỉ nên đưa tự host vào slide như **phương án so sánh** (bảng hòa vốn), không phải phương án chính. Việc này thuộc phần của Tài; cần giá GPU chính thức và thông lượng đo được.
+
+### Khuyến nghị cho slide và báo giá
+1. Kiến trúc: LiteLLM (hoặc gateway tương đương) đứng trước, định tuyến theo cấp tác vụ và theo độ khó; fallback sang Claude khi model mở lỗi hoặc điểm tự đánh giá thấp.
+2. Ghi rõ **mọi model đều gọi qua Bedrock** để thống nhất cam kết không lưu dữ liệu và private endpoint (H1, H5). Nếu có model nào phải gọi ngoài Bedrock, nêu cam kết bằng văn bản.
+3. Bắt buộc có bộ test chất lượng cho từng cấp, so với model tham chiếu nhóm nêu tên (H8). Nếu không đo được thì không được tính tiết kiệm ở cấp đó.
+4. Trước tiên xác nhận trong console Bedrock: model nào có thật ở region định chọn, giá, có prompt cache không. Đây là việc đầu tiên của Tài.
+
 ## 3. Danh sách việc cần tra giá (để chụp bằng chứng)
 Mỗi dòng tra ở ap-southeast-1 (Singapore) trừ khi ghi khác.
 1. Bedrock: input/output token của từng model dự kiến; giá cache read/write; giá Guardrails; nhà cung cấp model có qua Bedrock ở Singapore hay phải dùng cross-region (và giá cross-region).

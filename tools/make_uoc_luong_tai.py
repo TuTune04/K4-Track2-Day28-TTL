@@ -55,15 +55,17 @@ for r, lab, val, note in rows:
 g["A13"] = "BẢNG GIÁ MODEL (USD / 1 triệu token) - GIÁ THAM KHẢO, PHẢI THAY BẰNG GIÁ BEDROCK ap-southeast-1 + ẢNH CHỤP"
 g["A13"].font = BOLD
 g["A13"].fill = WARN
-head(g, 14, ["Lớp model", "Model gợi ý (chưa chốt)", "Input", "Output"])
+head(g, 14, ["Lớp model", "Model gợi ý (chưa chốt)", "Input", "Output", "Hỗ trợ prompt cache (1/0)"])
 for r, (cls, model, i, o) in enumerate(
     [("small", "Haiku 4.5 hoặc tương đương", 1.0, 5.0),
      ("medium", "Sonnet 4.6 hoặc tương đương", 3.0, 15.0),
-     ("large", "Opus (chưa kiểm giá)", 5.0, 25.0)], start=15):
+     ("large", "Opus (chưa kiểm giá)", 5.0, 25.0),
+     ("open", "DeepSeek V3.1 hoặc Qwen3 trên Bedrock (giá Sydney, CẦN KIỂM region và giá)", 0.6, 1.73)], start=15):
     g.cell(row=r, column=1, value=cls)
     g.cell(row=r, column=2, value=model)
     inp(g, f"C{r}", i)
     inp(g, f"D{r}", o)
+    inp(g, f"E{r}", 0 if cls == "open" else 1)
 
 g["A19"] = "5 CẤP TÁC VỤ"
 g["A19"].font = BOLD
@@ -121,9 +123,9 @@ for i in range(5):
     t[f"B{r}"] = f"=GiaDinh!$B$3*GiaDinh!$B$4*GiaDinh!$B$5*GiaDinh!B{s}"
     t[f"C{r}"] = f"=B{r}*GiaDinh!C{s}/1000000"
     t[f"D{r}"] = f"=B{r}*GiaDinh!D{s}/1000000"
-    t[f"E{r}"] = (f"=C{r}*(GiaDinh!$B$10*GiaDinh!$B$11+(1-GiaDinh!$B$10))"
-                  f"*VLOOKUP(GiaDinh!E{s},GiaDinh!$A$15:$D$17,3,FALSE)")
-    t[f"F{r}"] = f"=D{r}*VLOOKUP(GiaDinh!E{s},GiaDinh!$A$15:$D$17,4,FALSE)"
+    t[f"E{r}"] = (f"=C{r}*(1-GiaDinh!$B$10*VLOOKUP(GiaDinh!E{s},GiaDinh!$A$15:$E$18,5,FALSE)*(1-GiaDinh!$B$11))"
+                  f"*VLOOKUP(GiaDinh!E{s},GiaDinh!$A$15:$E$18,3,FALSE)")
+    t[f"F{r}"] = f"=D{r}*VLOOKUP(GiaDinh!E{s},GiaDinh!$A$15:$E$18,4,FALSE)"
     t[f"G{r}"] = f"=B{r}*GiaDinh!F{s}"
     t[f"H{r}"] = f"=G{r}*GiaDinh!G{s}/3600"
     t[f"I{r}"] = f"=B{r}*GiaDinh!H{s}"
