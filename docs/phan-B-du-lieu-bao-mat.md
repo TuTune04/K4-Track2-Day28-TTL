@@ -162,7 +162,7 @@ Staging đã gồm: database, cache, sandbox, connectors, authn, governance, KMS
 | H2 | Cognito SAML/OIDC + MFA ở IdP; Verified Permissions; OAuth ủy nhiệm; token mã hóa KMS | "vault" là KMS+RDS, không phải Secrets Manager; hội đồng có thể hỏi |
 | H3 | S3 prefix+STS+presigned; RLS; Lambda microVM tenant isolation; không egress; giới hạn tài nguyên | "hủy sau khi chạy" chưa theo nghĩa đen; recall pgvector có RLS chưa đo |
 | H4 | Guardrails đầu vào/đầu ra, xác nhận trước hành động ghi, tách nội dung không tin cậy | tiếng Việt Standard tier + cross-region; eval gate thuộc Tài |
-| H5 | SSE-KMS, TLS, Presidio, audit 12 tháng Object Lock, phân loại bằng nhãn trong DB | Presidio tiếng Việt chưa đo; thời hạn lưu cần chính sách |
+| H5 | SSE-KMS, TLS, Presidio, audit 12 tháng Object Lock, phân loại bằng nhãn trong DB | Presidio tiếng Việt chưa đo; thời hạn lưu ĐÃ CHỐT (mục 13) |
 | H6 | Lambda khởi động nhanh; DB nhỏ | p95 truy vấn pgvector chưa đo |
 | H7 (phần tôi) | RDS Multi-AZ, ElastiCache replica, Lambda đa AZ | diễn tập failover chưa làm; backup/DR thuộc Tú |
 
@@ -220,3 +220,17 @@ Không có SKU/region nào phải đổi; **tổng `baogia-B.tsv` trước 2.872
 4. Đo thử pgvector với RLS (recall, p95) và Presidio với dữ liệu tiếng Việt thật.
 
 TRẠNG THÁI: XONG
+
+## 13. Chính sách lưu và phân loại dữ liệu (ĐÃ CHỐT, H5)
+
+| Dữ liệu | Thời hạn | Cách thực thi | Bằng chứng giá/tài liệu |
+|---|---|---|---|
+| Log ứng dụng | 30 ngày | CloudWatch Logs retention 30 ngày (khớp dòng `monitoring` của phần C) | E12 |
+| Audit log | 12 tháng | S3 Object Lock chế độ compliance, retention 365 ngày, lifecycle expiration 366 ngày; chỉ chứa nội dung đã che PII | E43, E64, E65 |
+| Lịch sử chat, bộ nhớ dài hạn | 12 tháng, rồi xóa hoặc ẩn danh | Job pg_cron trên RDS xóa theo `created_at`; dung lượng ổn định ~132 GB | E40, E67 |
+| File workspace | Giữ đến khi người dùng xóa; xóa sau 90 ngày kể từ khi tài khoản bị vô hiệu | Sự kiện vô hiệu hóa từ IdP đặt nhãn `expire_at`; lifecycle S3 xóa theo nhãn; phiên bản cũ giữ 7 ngày | E43, E65, E66 |
+| Backup RDS | Theo kế hoạch phần C | Không đổi | E08 |
+
+**Phân loại 3 mức:** Công khai, Nội bộ, Mật. Nhãn gắn lúc đồng bộ vào pgvector (cột `classification`) và lúc ghi S3 (object tag, ~0,65 USD/tháng). Mức Mật: luôn qua Presidio trước khi vào prompt; không gửi sang dịch vụ ngoài AWS (kể cả sinh ảnh); audit chỉ lưu siêu dữ liệu.
+
+**Chứng minh với hội đồng (3 phút):** tạo bản ghi chat giả với `created_at` quá 12 tháng và chạy job xóa; vô hiệu hóa một người dùng thử và cho thấy nhãn `expire_at` được đặt; thử ghi đè audit log và bị Object Lock từ chối.
