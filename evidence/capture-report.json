@@ -1,0 +1,42 @@
+[
+ {
+  "code": "E01",
+  "url": "https://aws.amazon.com/fargate/pricing/",
+  "want": "Singapore",
+  "ok": true,
+  "regionSelected": false,
+  "textHasWant": false,
+  "note": "",
+  "title": "AWS Fargate Pricing"
+ },
+ {
+  "code": "E02",
+  "url": "https://aws.amazon.com/elasticloadbalancing/pricing/",
+  "want": "Singapore",
+  "ok": true,
+  "regionSelected": false,
+  "textHasWant": false,
+  "note": "",
+  "title": "Elastic Load Balancing pricing"
+ },
+ {
+  "code": "E09",
+  "url": "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReplicateBackups.html",
+  "want": "Singapore",
+  "ok": true,
+  "regionSelected": false,
+  "textHasWant": true,
+  "note": "",
+  "title": "Replicating automated backups to another AWS Region - Amazon Relational Database"
+ },
+ {
+  "code": "E13",
+  "url": "https://docs.github.com/en/billing/reference/actions-runner-pricing",
+  "want": "",
+  "ok": true,
+  "regionSelected": false,
+  "textHasWant": true,
+  "note": "",
+  "title": "Actions runner pricing - GitHub Docs"
+ }
+]
