@@ -1,5 +1,8 @@
 # Tổng hợp điều phối: VBot Capstone (cập nhật 2026-10-16, sau tối ưu và áp quy tắc bằng chứng)
 
+> **Cập nhật sau quyết định chốt (2026-10-16):** 7 câu hỏi mở ở mục 7 đã được chốt, xem `docs/quyet-dinh-chot.md`. Tổng mới **$18.871,95/tháng** (A 9.811,98; B 2.873,95; C 6.186,02). Các số cũ trong mục 2, 5 và 7 bên dưới là trước khi chốt.
+
+
 Nguồn: `phan-A-model-tai.md`, `phan-B-du-lieu-bao-mat.md`, `phan-C-ha-van-hanh.md`, `baogia-A/B/C.tsv`, `evidence/INDEX.md`. Mọi số tiền dưới đây cộng trực tiếp từ cột chi phí của ba file TSV. Một vòng sửa duy nhất đã giao cho `tu` (rerank, vùng Cohere Embed); đã xong.
 
 ## 1. Kiểm tra 19 component

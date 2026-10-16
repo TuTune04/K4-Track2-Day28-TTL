@@ -89,3 +89,13 @@ Dòng `ops_labor` và `contingency` ghi `NA`, không cần ảnh (E39 chỉ đ�
 Khi ghép `G??_baogia.xlsx`: sheet `BangChung` cột A = mã Exx, B = mô tả, C = link, D = ngày chụp, E = ảnh dán vào.
 
 TRẠNG THÁI: XONG
+
+## Bổ sung phần B sau quyết định chốt thời hạn lưu (E64-E69)
+
+| Mã | Dịch vụ / SKU / region | Link trang mở được | Phải thấy gì trong ảnh | Ảnh dự kiến | Trạng thái | Ngày tra | Phụ trách | Dùng cho |
+|---|---|---|---|---|---|---|---|---|
+| E64 | Amazon S3 Object Lock (chế độ compliance, retention mặc định) | https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html | Đoạn mô tả chế độ compliance và retention; dùng cho audit log 12 tháng | `evidence/E-64.png` | chưa chụp | 2026-10-16 | Long (B) | governance |
+| E65 | Amazon S3 Lifecycle (expiration, chuyển lớp lưu trữ) | https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lifecycle-mgmt.html | Đoạn mô tả quy tắc expiration; dùng cho xóa theo thời hạn | `evidence/E-65.png` | chưa chụp | 2026-10-16 | Long (B) | governance, object_storage |
+| E66 | Amazon S3 Replication: thứ được và không được sao chép | https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-what-is-isnot-replicated.html | Đoạn về tag, phiên bản cũ và đối tượng được sao chép sang region khác | `evidence/E-66.png` | chưa chụp | 2026-10-16 | Long (B) | object_storage |
+| E67 | Amazon RDS for PostgreSQL: tiện ích pg_cron | https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL_pg_cron.html | Đoạn xác nhận RDS PostgreSQL hỗ trợ pg_cron; dùng cho job xóa chat sau 12 tháng | `evidence/E-67.png` | chưa chụp | 2026-10-16 | Long (B) | database |
+| E69 | Amazon S3, giá object tagging, Singapore | https://aws.amazon.com/s3/pricing/ | Dòng giá object tag ở Asia Pacific (Singapore). CHƯA CÓ BẰNG CHỨNG trên trang (số chỉ thấy trong Price List JSON) | `evidence/E-69.png` | chưa chụp | 2026-10-16 | Long (B) | object_storage |

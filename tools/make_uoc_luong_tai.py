@@ -76,7 +76,7 @@ tiers = [
     ("Cấp 2 Tài liệu, slide", 0.20, 6000, 2000, "medium", 0.5, 20, 1, 0, "Xuất DOCX/XLSX/PPTX chạy trong sandbox"),
     ("Cấp 3 Dữ liệu, code", 0.15, 10000, 1500, "medium", 0.9, 30, 1, 0, "Phân tích bảng, chạy script"),
     ("Cấp 4 Agent dự án", 0.15, 40000, 4000, "medium", 0.3, 60, 5, 0, "Nhiều bước; token vào là tổng các bước"),
-    ("Cấp 5 Thiết kế", 0.05, 6000, 1500, "large", 0.3, 30, 1, 2, "Có sinh ảnh"),
+    ("Cấp 5 Thiết kế", 0.05, 6000, 1500, "large", 0.3, 30, 1, 1.1, "1 ảnh nháp, trung bình 1,1 ảnh/request"),
 ]
 for r, row in enumerate(tiers, start=21):
     for c, v in enumerate(row, start=1):

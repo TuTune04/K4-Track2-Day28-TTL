@@ -21,11 +21,18 @@ const total = rows.reduce((s, r) => s + r.cost, 0);
 const byComp = {};
 rows.forEach((r) => (byComp[r.comp] = (byComp[r.comp] || 0) + r.cost));
 const has = (v) => rows.some((r) => Math.abs(r.cost - v) < 0.01);
-[4532, 3500, 3312.93, 2988.67, 1750, 792, 787.67, 649.79].forEach((v) => {
+[3500, 3312.93, 2988.67, 2420, 1750, 792, 787.67, 649.79].forEach((v) => {
   if (!has(v)) throw new Error("Giá trị biểu đồ không có trong TSV: " + v);
 });
 const usd = (n, d = 0) => "$" + n.toLocaleString("vi-VN", { minimumFractionDigits: d, maximumFractionDigits: d });
 const perDau = total / 2000;
+const OLD_TOTAL = 20986.76; // tổng trước khi áp quyết định chốt (1,1 ảnh/request)
+const nEvid = (fs.readFileSync(path.join(ROOT, "evidence", "INDEX.md"), "utf8").match(/^\|\s*E\d{2,3}\s*\|/gm) || []).length;
+const nEvidNoPage = (fs.readFileSync(path.join(ROOT, "evidence", "INDEX.md"), "utf8").match(/CHƯA CÓ BẰNG CHỨNG/g) || []).length;
+const varPart = ["llm", "sandbox", "governance", "object_storage", "connectors", "embedding"].reduce((a, k) => a + (byComp[k] || 0), 0);
+const fixedPart = total - varPart;
+const dau2 = 2 * varPart + 1.15 * fixedPart;
+const r100 = (n) => Math.round(n / 100) * 100;
 
 // ---------- giao diện ----------
 const NAVY = "0B2536", TEAL = "0B6E99", SKY = "D9EDF6", AMBER = "B45309", AMBER_SOFT = "FBEBD6";
@@ -105,7 +112,7 @@ const hdr = (t, o = {}) => cell(t, Object.assign({ bold: true, color: "FFFFFF", 
     ["2 Tài liệu, slide", "20%", "6.000", "1.550", "Haiku 5.5"],
     ["3 Dữ liệu, code", "15%", "10.000", "1.050", "Haiku 70% / Sonnet 30%"],
     ["4 Agent dự án", "15%", "40.000", "3.050", "Haiku 70% / Sonnet 30%"],
-    ["5 Thiết kế", "5%", "6.000", "1.220", "Sonnet 5.5 + 2 ảnh"],
+    ["5 Thiết kế", "5%", "6.000", "1.220", "Sonnet 5.5 + 1,1 ảnh"],
   ].map((r, i) => (i === 0 ? r : r.map((c, j) => cell(c, { align: j >= 1 && j <= 3 ? "right" : "left", fill: { color: i % 2 ? "FFFFFF" : CARD } }))));
   s.addTable(t, { x: 0.5, y: 2.5, w: 6.0, colW: [1.65, 0.6, 0.95, 0.85, 1.95], rowH: 0.3, border: { type: "solid", color: LINE, pt: 0.5 } });
   card(s, 6.7, 2.5, 2.8, 1.8);
@@ -202,7 +209,7 @@ const hdr = (t, o = {}) => cell(t, Object.assign({ bold: true, color: "FFFFFF", 
     ["2 Tài liệu, slide", "Haiku 5.5 (100%)", "Không tính", "Viết theo mẫu; rủi ro chất lượng văn bản"],
     ["3 Dữ liệu, code", "Haiku 70% · Sonnet 30%", "10% Haiku → Sonnet", "Code cần đúng; Sonnet cho phần khó"],
     ["4 Agent dự án", "Haiku 70% · Sonnet 30%", "10% Haiku → Sonnet", "40.000 token vào, nhiều bước; tốn nhất"],
-    ["5 Thiết kế", "Sonnet 5.5", "Không", "Cộng 2 ảnh/request (Stable Image Core)"],
+    ["5 Thiết kế", "Sonnet 5.5", "Không", "1 ảnh nháp, trung bình 1,1 ảnh/request (Stable Image Core)"],
   ].map((r, i) => (i === 0 ? r : r.map((c, j) => cell(c, { bold: j === 0, fill: { color: i % 2 ? "FFFFFF" : CARD }, fontSize: 11 }))));
   s.addTable(t, { x: 0.5, y: 1.3, w: 9, colW: [1.7, 2.3, 1.9, 3.1], rowH: 0.34, border: { type: "solid", color: LINE, pt: 0.5 } });
   card(s, 0.5, 3.55, 4.4, 1.55, AMBER_SOFT);
@@ -332,9 +339,9 @@ const hdr = (t, o = {}) => cell(t, Object.assign({ bold: true, color: "FFFFFF", 
     bullets([
       "Mã hóa lúc lưu bằng SSE-KMS, lúc truyền bằng TLS.",
       "Presidio che PII; chưa đo trên tiếng Việt.",
-      "Audit log 12 tháng ở S3 Object Lock.",
+      "Audit log 12 tháng ở S3 Object Lock; log ứng dụng 30 ngày; chat 12 tháng rồi xóa.",
       "Theo tài liệu AWS, dữ liệu vào Bedrock không dùng để huấn luyện và không chia sẻ cho nhà cung cấp model.",
-      "Còn thiếu: chính sách phân loại và thời hạn lưu dữ liệu.",
+      "Phân loại 3 mức (Công khai, Nội bộ, Mật); mức Mật không ra khỏi AWS. Workspace xóa 90 ngày sau khi khóa tài khoản.",
     ], 11.5),
     { x: 5.25, y: 1.75, w: 4.1, h: 2.9, fontFace: BODY, valign: "top", margin: 0 }
   );
@@ -420,8 +427,8 @@ const hdr = (t, o = {}) => cell(t, Object.assign({ bold: true, color: "FFFFFF", 
     " · C $" + Math.round(rows.filter((r) => r.part === "C").reduce((a, r) => a + r.cost, 0)).toLocaleString("vi-VN"),
     { x: 0.5, y: 4.1, w: 2.9, h: 0.5, fontFace: BODY, fontSize: 10.5, color: MUTED, margin: 0, valign: "top" });
   s.addText("Đơn giá từ bảng giá chính thức AWS (2026-10-16), ảnh bằng chứng chưa chụp. Khối lượng là giả định của nhóm.", { x: 0.5, y: 4.62, w: 2.9, h: 0.55, fontFace: BODY, fontSize: 10, italic: true, color: MUTED, margin: 0, valign: "top" });
-  const labels = ["Ảnh cấp 5", "SRE 1,0 FTE", "Sonnet token ra", "Sonnet token vào", "LLMOps 0,5 FTE", "Guardrails", "RDS prod Multi-AZ", "Lambda sandbox"];
-  const vals = [4532, 3500, 3312.93, 2988.67, 1750, 792, 787.67, 649.79];
+  const labels = ["SRE 1,0 FTE", "Sonnet token ra", "Sonnet token vào", "Ảnh cấp 5 (1,1/request)", "LLMOps 0,5 FTE", "Guardrails", "RDS prod Multi-AZ", "Lambda sandbox"];
+  const vals = [3500, 3312.93, 2988.67, 2420, 1750, 792, 787.67, 649.79];
   s.addChart(pres.charts.BAR, [{ name: "USD/tháng", labels, values: vals }], {
     x: 3.6, y: 1.2, w: 5.9, h: 3.95, barDir: "bar", chartColors: [TEAL], showTitle: true, title: "8 hạng mục lớn nhất (USD/tháng)",
     titleFontSize: 12, titleColor: NAVY, showValue: true, dataLabelFormatCode: "#,##0", dataLabelFontSize: 10, dataLabelColor: INK,
@@ -439,6 +446,7 @@ const hdr = (t, o = {}) => cell(t, Object.assign({ bold: true, color: "FFFFFF", 
     bullets([
       "Haiku cho cấp 2-4, có tính leo thang 10%: rẻ hơn Sonnet khoảng $5.068/tháng.",
       "Tách tỉ lệ cache ghi/đọc theo cấp: −$1.004.",
+      "Ảnh cấp 5: 1 ảnh nháp, trung bình 1,1 ảnh/request: −$2.112.",
       "Cắt token ra theo cấp (thực đo −10,5%): −$850 sau khi trừ lượt hỏi lại.",
       "Vector DB gộp vào RDS pgvector; Lambda thay cho cụm sandbox chạy 24/7.",
     ], 11),
@@ -446,15 +454,13 @@ const hdr = (t, o = {}) => cell(t, Object.assign({ bold: true, color: "FFFFFF", 
   );
   const t = [
     [hdr("Còn có thể làm"), hdr("USD/tháng", { align: "right" }), hdr("Điều kiện")],
-    ["Ảnh cấp 5: 1 ảnh nháp thay vì 2", "−2.266", "Người dùng xin thêm khi cần"],
-    ["Gộp LLMOps 0,5 FTE vào SRE", "−1.750", "Quyết định nhân sự"],
     ["Cache cấp 4 đọc 85%, ghi 15%", "−671", "Phải đo hit rate thật"],
     ["Guardrails chỉ cho nội dung trước hành động ghi", "−240 đến −320", "Giảm phạm vi H4"],
     ["Ghi cache giảm một nửa", "−265", "Phụ thuộc tái sử dụng"],
     ["Sandbox 3 GB → 2 GB", "~−173", "Cần đo thời gian chạy"],
   ].map((r, i) => (i === 0 ? r : r.map((c, j) => cell(c, { align: j === 1 ? "right" : "left", fill: { color: i % 2 ? "FFFFFF" : CARD }, fontSize: 10.5, bold: j === 1, color: j === 1 ? OK : INK }))));
   s.addTable(t, { x: 4.2, y: 1.3, w: 5.3, colW: [2.5, 1.0, 1.8], rowH: 0.42, border: { type: "solid", color: LINE, pt: 0.5 } });
-  s.addText(`Chỉ áp dụng "1 ảnh nháp": ${usd(total)} → ${usd(total - 2266)}.`, { x: 4.2, y: 4.5, w: 5.3, h: 0.5, fontFace: BODY, fontSize: 12, bold: true, color: AMBER, margin: 0, valign: "top" });
+  s.addText(`Sau các quyết định chốt: ${usd(OLD_TOTAL)} → ${usd(total)} mỗi tháng.`, { x: 4.2, y: 4.5, w: 5.3, h: 0.5, fontFace: BODY, fontSize: 12, bold: true, color: AMBER, margin: 0, valign: "top" });
 }
 
 // ---------- 13. rủi ro và mở rộng ----------
@@ -465,9 +471,9 @@ const hdr = (t, o = {}) => cell(t, Object.assign({ bold: true, color: "FFFFFF", 
   s.addText(
     bullets([
       "H8: Haiku cho cấp 2-4 chưa đo ≥ 95%. Lùi về Sonnet nhiều hơn: +$5.068.",
-      "H1: hồ sơ Bedrock global xử lý ở region bất kỳ, Guardrails dùng cross-Region, ảnh gọi ở us-west-2. Hồ sơ geo APAC: +$727.",
+      "H1: đã chốt giữ hồ sơ Bedrock global (cùng một cloud AWS, không lưu dữ liệu). Guardrails dùng cross-Region và ảnh gọi ở us-west-2, nên có thể bị chất vấn về nơi xử lý.",
       "H6: p95 token đầu dưới 3 giây mới là ước lượng; quota Bedrock lúc burst chưa kiểm.",
-      "Bằng chứng: 33 trong 61 mã ảnh chưa thấy được số Singapore trên trang giá.",
+      `Bằng chứng: ${nEvid} mã ảnh chưa chụp; ${nEvidNoPage} chỗ đơn giá Singapore chỉ thấy trong bảng giá JSON, chưa thấy trên trang.`,
     ], 11.5),
     { x: 0.65, y: 1.75, w: 4.1, h: 3.3, fontFace: BODY, valign: "top", margin: 0 }
   );
@@ -475,15 +481,15 @@ const hdr = (t, o = {}) => cell(t, Object.assign({ bold: true, color: "FFFFFF", 
   s.addText("Nếu DAU gấp đôi (4.000)", { x: 5.25, y: 1.38, w: 4.1, h: 0.3, fontFace: BODY, fontSize: 14, bold: true, color: NAVY, margin: 0 });
   s.addText(
     [
-      { text: "Ước tính ~$35.000 đến $36.000/tháng (+70%).", options: { bold: true, color: AMBER, breakLine: true, fontSize: 12 } },
-      { text: "Phần tăng theo tải (LLM, sandbox, Guardrails, lưu trữ, ~$13.600) nhân đôi; phần cố định (nhân sự, ALB, NAT, DB, ~$7.400) tăng nhẹ. Ước tính của nhóm, chưa tính lại quota.", options: { fontSize: 11 } },
+      { text: `Ước tính ~${usd(r100(dau2))}/tháng (+${Math.round((dau2 / total - 1) * 100)}%).`, options: { bold: true, color: AMBER, breakLine: true, fontSize: 12 } },
+      { text: `Phần tăng theo tải (LLM, sandbox, Guardrails, lưu trữ, ~${usd(r100(varPart))}) nhân đôi; phần cố định (nhân sự, ALB, NAT, DB, ~${usd(r100(fixedPart))}) tăng khoảng 15%. Ước tính của nhóm, chưa tính lại quota.`, options: { fontSize: 11 } },
     ],
     { x: 5.25, y: 1.75, w: 4.1, h: 1.4, fontFace: BODY, valign: "top", margin: 0, color: INK }
   );
   card(s, 5.1, 3.35, 4.4, 1.75);
   s.addText("Độ nhạy khác", { x: 5.25, y: 3.43, w: 4.1, h: 0.3, fontFace: BODY, fontSize: 14, bold: true, color: NAVY, margin: 0 });
   s.addText(
-    bullets(["Giá token ±30%: khoảng ±$3.400", "Leo thang Haiku → Sonnet 30% thay vì 10%: +$1.971", "Hit rate cache thấp hơn 10 điểm: +$952"], 11),
+    bullets([`Giá LLM ±30%: khoảng ±${usd(r100(0.3 * byComp.llm))}`, "Leo thang Haiku → Sonnet 30% thay vì 10%: +$1.971", "Hit rate cache thấp hơn 10 điểm: +$952"], 11),
     { x: 5.25, y: 3.78, w: 4.1, h: 1.25, fontFace: BODY, valign: "top", margin: 0 }
   );
 }
@@ -493,11 +499,11 @@ const hdr = (t, o = {}) => cell(t, Object.assign({ bold: true, color: "FFFFFF", 
   const s = base("Đối chiếu ràng buộc cứng và việc còn lại", "Đạt trên giấy chưa phải đã chứng minh. Màu cho biết mức độ.");
   const st = { ok: ["Đạt trên giấy", OK], warn: ["Chưa chứng minh", WARN], bad: ["Rủi ro", ERR] };
   const data = [
-    ["H1 Cloud", "bad", "Global profile, Guardrails cross-Region, ảnh ở us-west-2 cần chốt"],
+    ["H1 Cloud", "warn", "Đã chốt: AWS, hồ sơ global, không lưu dữ liệu; có thể bị hỏi về nơi xử lý"],
     ["H2 Định danh", "ok", "Cognito SAML/OIDC, MFA, OAuth ủy nhiệm, token KMS"],
     ["H3 Sandbox", "ok", "Lambda microVM, không egress; chưa kiểm metadata và recall RLS"],
     ["H4 Governance", "ok", "Guardrails, xác nhận trước khi ghi; eval gate chưa đo"],
-    ["H5 Data", "ok", "SSE-KMS, Presidio, audit 12 tháng; thiếu chính sách lưu"],
+    ["H5 Data", "ok", "SSE-KMS, Presidio, audit 12 tháng; chính sách lưu và phân loại đã chốt"],
     ["H6 Độ trễ", "warn", "p95 < 3 giây mới là ước lượng"],
     ["H7 HA/DR", "ok", "Không SPOF; RTO 3-4 giờ, RPO < 1 giờ chưa diễn tập"],
     ["H8 Chất lượng", "bad", "Chưa đo Haiku ≥ 95%; quota theo người chưa có số"],
@@ -511,7 +517,7 @@ const hdr = (t, o = {}) => cell(t, Object.assign({ bold: true, color: "FFFFFF", 
   );
   s.addTable(t, { x: 0.5, y: 1.3, w: 9, colW: [1.7, 1.7, 5.6], rowH: 0.33, border: { type: "solid", color: LINE, pt: 0.5 } });
   card(s, 0.5, 4.45, 9, 0.7, AMBER_SOFT);
-  s.addText("Còn phải làm: chụp 61 ảnh bằng chứng · đo H6 và H8 · chốt 7 câu hỏi mở (H1, ảnh 1 hay 2, nhân sự, dự phòng, thời hạn lưu dữ liệu).", {
+  s.addText(`Đã chốt 7 câu hỏi mở. Còn phải làm: chụp ${nEvid} ảnh bằng chứng · đo H6 và H8 · tập bảo vệ 7 phút.`, {
     x: 0.65, y: 4.5, w: 8.7, h: 0.6, fontFace: BODY, fontSize: 12, bold: true, color: AMBER, valign: "middle", margin: 0,
   });
 }
