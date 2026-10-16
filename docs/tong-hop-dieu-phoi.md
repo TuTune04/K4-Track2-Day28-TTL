@@ -1,93 +1,111 @@
-# Tổng hợp điều phối: VBot Capstone (2026-10-16)
+# Tổng hợp điều phối: VBot Capstone (cập nhật 2026-10-16, sau tối ưu và áp quy tắc bằng chứng)
 
-Nguồn: `phan-A-model-tai.md`, `phan-B-du-lieu-bao-mat.md`, `phan-C-ha-van-hanh.md`, `baogia-A/B/C.tsv`. Cả ba agent (tai, long, tu) đã báo `TRẠNG THÁI: XONG`. Không agent nào bị chặn quyền. Đã chạy một vòng sửa (tai, tu) sau khi kiểm chéo. Số tiền dưới đây là số **sau vòng sửa**, cộng trực tiếp từ ba file TSV.
+Nguồn: `phan-A-model-tai.md`, `phan-B-du-lieu-bao-mat.md`, `phan-C-ha-van-hanh.md`, `baogia-A/B/C.tsv`, `evidence/INDEX.md`. Mọi số tiền dưới đây cộng trực tiếp từ cột chi phí của ba file TSV. Một vòng sửa duy nhất đã giao cho `tu` (rerank, vùng Cohere Embed); đã xong.
 
 ## 1. Kiểm tra 19 component
 
-Đủ 19 component bắt buộc, không thiếu, không trùng giữa các phần:
+Đủ 19 component bắt buộc, không thiếu, không trùng giữa các phần. TSV có 22 nhãn: 19 bắt buộc cộng `embedding`, `licenses`, `contingency` (nhãn ghép của đề).
 
 | Phần | Component |
 |---|---|
-| A (tai) | llm, gateway (thêm dòng `embedding`) |
+| A (tai) | llm, embedding, gateway |
 | B (long) | database, vector_db, object_storage, cache_queue, sandbox, connectors, authn, authz, secrets_kms, governance |
-| C (tu) | compute, load_balancer, network, backup_dr, monitoring, cicd, ops_labor (thêm `licenses`, `contingency`) |
+| C (tu) | compute, load_balancer, network, backup_dr, monitoring, cicd, ops_labor, licenses, contingency |
 
-- Staging có: RDS staging (B 81,36), ElastiCache, sandbox, connector, Presidio staging (B), compute staging tắt ngoài giờ (C).
-- HA có: RDS Multi-AZ, ElastiCache 2 node, 2 AZ cho Fargate, NAT mỗi AZ, ALB 2 AZ. Chưa có HA cho gateway ở bên A trong phần mô tả cũ, nay dùng cỡ của C (2 task, mỗi AZ một task).
-- Còn sót: `licenses` và `contingency` thuộc vai kiến trúc sư trưởng theo đề; tu đã làm hộ. `embedding` chỉ 6,53 USD.
+Staging có đủ: RDS, ElastiCache, sandbox, connector, Presidio (B), compute tắt ngoài giờ (C). HA có: RDS Multi-AZ, ElastiCache 2 node, Fargate 2 AZ, NAT mỗi AZ, ALB 2 AZ, gateway 2 task mỗi AZ một.
 
-## 2. Mâu thuẫn tìm được
+## 2. Tổng chi phí (USD/tháng, giá niêm yết, không free tier)
 
-| # | Mâu thuẫn | Xử lý |
+| Phần | Component chính | Chi phí | Tỉ trọng |
+|---|---|---|---|
+| A | llm 11.806,99; gateway 93,66; embedding 23,33 | **11.923,98** | 56,8% |
+| B | database 951,83; governance 881,40; sandbox 689,51; object_storage 129,25; cache_queue 88,09; connectors 41,40; secrets_kms 37,70; authn 30,45; authz 22,50 | **2.872,13** | 13,7% |
+| C | ops_labor 5.450,00; network 225,65; compute 191,24; backup_dr 172,83; monitoring 45,16; load_balancer 42,00; cicd 16,50; licenses 12,00; contingency 35,27 | **6.190,65** | 29,5% |
+| **Tổng** | | **20.986,76** | 100% |
+
+Theo nhóm: LLM 56,3% (11.806,99); nhân sự 26,0% (5.450); hạ tầng còn lại 17,8% (3.729,77). Không tính nhân sự: 15.536,76. So với lần tổng hợp trước (25.316,77): giảm 4.330,01, hầu hết do Haiku cho cấp 2-4, cache theo cấp và cắt token ra, trừ phần tăng của ảnh.
+
+**5 hạng mục lớn nhất:**
+
+| # | Hạng mục | USD |
 |---|---|---|
-| 1 | LiteLLM tính 2 lần: A `gateway` 71,97 và C `compute` 93,65 | Đã sửa: tai giữ dòng `gateway` (93,66, cỡ của tu); tu xóa dòng khỏi `compute` |
-| 2 | Audit log 12 tháng vừa ở S3 Object Lock (B 6,60) vừa ở CloudWatch (C ~8 + ingest) | Đã sửa: tu bỏ phần lưu trữ audit 12 tháng khỏi CloudWatch |
-| 3 | Kích cỡ DB: B 300 GB gp3, C tính backup theo 150 GB | Đã sửa: tu tính lại backup/DR theo 300 GB (backup_dr 123,94 → 171,33) |
-| 4 | C nói DB staging dùng chung với prod, B có RDS staging riêng | Đã sửa câu của C, B đã tính 81,36 |
-| 5 | Region: mọi thứ ap-southeast-1, nhưng Titan Image phải gọi us-west-2, DeepSeek/Qwen chỉ có Sydney, Claude 5.5 ở Singapore chỉ qua hồ sơ "global" | Không phải lỗi nội bộ, nhưng là rủi ro H1 (câu hỏi mở bên dưới) |
-| 6 | Hướng ban đầu "Claude + DeepSeek/Qwen"; A khuyến nghị chỉ dùng Claude (Haiku 5.5 + Sonnet 5.5) vì Singapore không có model mở | Khớp với B/C (sơ đồ C còn ghi DeepSeek/Qwen: tu nên bỏ khi gộp slide) |
-| 7 | Guardrails tầng Standard (B) bắt buộc cross-region inference, trong khi C/B nói mọi thứ ở Singapore | Chưa xác nhận, xem câu hỏi mở |
+| 1 | Sinh ảnh cấp 5: Stability Stable Image Core (us-west-2) | 4.532,00 |
+| 2 | SRE/Platform 1,0 FTE | 3.500,00 |
+| 3 | Sonnet 5.5 token ra | 3.312,93 |
+| 4 | Sonnet 5.5 token vào | 2.988,67 |
+| 5 | LLMOps 0,5 FTE | 1.750,00 |
 
-Khớp nhau: tải (1,1 triệu request, 4,2 req/s, 600 phiên, ~38 sandbox, 3,9 TB, 22 GB log), sandbox Lambda microVM (B) với subnet sandbox không NAT (C), token connector mã hóa KMS trong RDS (B, C đồng ý), Bedrock qua VPC endpoint (C), region DR Sydney.
+Kế tiếp: Bedrock Guardrails 792,00; RDS prod Multi-AZ 787,67; Lambda sandbox 649,79. Điểm đáng chú ý: ảnh lớn hơn cả toàn bộ token Haiku (973) cộng embedding và gateway.
 
-## 3. Đối chiếu H1-H8
+## 3. Mâu thuẫn còn lại giữa A/B/C
+
+| # | Vấn đề | Tình trạng |
+|---|---|---|
+| 1 | Dịch vụ ảnh đã đổi: Titan Image/Nova Canvas không còn dùng được, A chuyển sang Stable Image Core ở **us-west-2** (4.532, tăng từ 1.100). C đã cộng NAT +3,36 cho đường ảnh; B không bị ảnh hưởng | Nhất quán về số; rủi ro H1 (xem câu hỏi mở) |
+| 2 | Embedding đổi sang Cohere Embed Multilingual (A: Singapore). C đã đổi sơ đồ và độ trễ; sau vòng sửa C ghi DR Sydney cho embedding là chưa kiểm. B vector 1024 chiều vẫn khớp | Đã khớp |
+| 3 | DeepSeek/Qwen: A bỏ hẳn (không có ở Singapore, không dùng làm fallback); sơ đồ C đã sửa, không còn nhắc | Đã khớp; hướng ban đầu "model mở" trong RULES.md đã lỗi thời, chỉ còn Claude |
+| 4 | Rerank: C tính 150-400 ms "nếu có", A không đưa vào báo giá (ước 660 nếu có, không có ở Singapore cho Amazon Rerank) | Đã sửa: C ghi rõ rerank ngoài baseline |
+| 5 | Region: mọi dịch vụ ap-southeast-1, DR Sydney; ngoại lệ ảnh us-west-2; Claude 5.5 ở Singapore chỉ qua hồ sơ **global**; Guardrails Standard (bắt buộc cho tiếng Việt) dùng **cross-Region** trong cùng geography nhưng vùng đích chưa có bằng chứng | Chưa giải quyết được, cần người dùng quyết (H1) |
+| 6 | Gateway tính một lần ở A (93,66), C đã bỏ dòng LiteLLM; staging DB riêng ở B (81,36), C đã sửa câu | Đã khớp từ vòng trước |
+| 7 | Báo giá A ghi kịch bản S3 (Haiku cho cấp 2-4 + leo thang 10%); mức này **chưa đo H8**. Nếu lùi S2: LLM token +5.068 | Phụ thuộc kết quả đo |
+| 8 | `contingency` 35,27 chỉ tính trên hạ tầng phần C; token LLM (±30% ≈ ±3.400 trên token 7.275 + ảnh) không có dự phòng | Cần quyết |
+| 9 | Nhiều đơn giá Singapore **CHƯA CÓ BẰNG CHỨNG trên trang** (chỉ thấy trong JSON), xem mục 6 | Phải chụp tay |
+
+## 4. Đối chiếu H1-H8
 
 | H | Trạng thái | Ghi chú |
 |---|---|---|
-| H1 Cloud | Rủi ro | AWS Singapore. Hồ sơ "global" xử lý ở region nào cũng được; Guardrails Standard cross-region; ảnh gọi us-west-2 |
-| H2 Định danh | Đạt trên giấy | Cognito SAML/OIDC + MFA ở IdP, Verified Permissions, token KMS trong RDS ("vault" không phải Secrets Manager, hội đồng có thể hỏi) |
-| H3 Sandbox | Đạt trên giấy | Lambda tenant isolation (Firecracker), không egress. "Hủy sau khi chạy" chưa theo nghĩa đen; RLS pgvector chưa đo recall |
-| H4 Governance | Đạt trên giấy | Guardrails + xác nhận trước khi ghi. Cổng eval chưa thấy chi phí/thiết kế rõ ràng (thuộc tai/tu), cần bổ sung |
-| H5 Data | Đạt trên giấy | SSE-KMS, Presidio (chưa đo tiếng Việt), audit 12 tháng Object Lock. Chưa có chính sách thời hạn lưu |
-| H6 Độ trễ | Chưa chứng minh | p95 TTFT < 3 s mới là ước lượng; quota Bedrock (~2,6 triệu token vào/phút lúc burst) chưa kiểm |
-| H7 HA/DR | Đạt trên giấy | Không SPOF ở LB, gateway, DB; RTO ~3 giờ/RPO < 1 giờ là ước tính, chưa diễn tập. Sandbox Lambda và gateway chưa có kế hoạch ở Sydney ngoài Terraform |
-| H8 Chất lượng/chi phí | Chưa đạt | Mức Haiku/Sonnet cho từng cấp chưa đo ≥ 95% điểm model tham chiếu; quota theo người/đơn vị nằm ở LiteLLM nhưng chưa có số |
+| H1 Cloud | **Rủi ro** | AWS Singapore + DR Sydney. Hồ sơ global (xử lý ở region bất kỳ), Guardrails cross-Region, ảnh us-west-2: cả ba cần chốt hoặc có cam kết không lưu dữ liệu |
+| H2 Định danh | Đạt trên giấy | Cognito SAML/OIDC + MFA ở IdP; Verified Permissions; OAuth ủy nhiệm; token mã hóa KMS trong RDS (không phải Secrets Manager, hội đồng có thể hỏi) |
+| H3 Sandbox | Đạt trên giấy | Lambda microVM tenant isolation, subnet không NAT; "hủy sau khi chạy" chưa theo nghĩa đen; RLS pgvector chưa đo recall |
+| H4 Governance | Đạt trên giấy | Guardrails + xác nhận trước khi ghi; eval gate nằm ở tai/tu, chưa đo |
+| H5 Data | Đạt trên giấy | SSE-KMS, Presidio (tiếng Việt chưa đo), audit 12 tháng S3 Object Lock; thiếu chính sách thời hạn lưu |
+| H6 Độ trễ | Chưa chứng minh | p95 TTFT < 3 s chỉ là ước lượng; cấp 2-3 rủi ro; quota Bedrock (burst ~2,6 triệu token/phút) chưa kiểm |
+| H7 HA/DR | Đạt trên giấy | Không SPOF ở LB, gateway, DB; RTO 3-4 giờ theo kế hoạch (RDS 300 GB khôi phục 1:30-2:30) sát ngưỡng 4 giờ; RPO < 1 giờ; chưa diễn tập |
+| H8 Chất lượng/chi phí | **Chưa đạt** | Haiku cho cấp 2-4 ≥95% model tham chiếu chưa đo; có điều kiện lùi S2; quota theo người/đơn vị ở LiteLLM chưa có số |
 
-## 4. Tổng chi phí tạm tính (USD/tháng)
+## 5. Đòn bẩy tiết kiệm còn lại (USD/tháng, từ phần A/B/C)
 
-| Phần | Chi phí | Tỉ trọng |
+| Đòn bẩy | Tiết kiệm | Điều kiện/rủi ro |
 |---|---|---|
-| A: llm 16.158,90, gateway 93,66, embedding 6,53 | 16.259,09 | 64,2% |
-| B: database 951,83, governance 881,40, sandbox 689,51, object_storage 129,25, cache_queue 88,09, connectors 41,40, secrets_kms 37,70, authn 30,45, authz 22,50 | 2.872,13 | 11,3% |
-| C: ops_labor 5.450, network 222,29, compute 191,24, backup_dr 171,33, monitoring 45,16, load_balancer 42, cicd 16,50, licenses 12, contingency 35,03 | 6.185,55 | 24,4% |
-| **Tổng** | **25.316,77** | 100% |
+| Ảnh cấp 5: **1 ảnh nháp** thay vì 2 (4.532 → 2.266) | **−2.266** | Chọn bản nháp rẻ, người dùng xin thêm khi cần; cần chốt trải nghiệm |
+| Bỏ LLMOps 0,5 FTE (gộp vào SRE) | −1.750 | Quyết định nhân sự, không phải kỹ thuật |
+| Cache tốt hơn: cấp 4 hit read 85%/write 15% | −671 | Cần đo hit rate thực tế |
+| Sandbox 3 → 2 GB RAM | ~−173 | Cần đo thời gian chạy |
+| Guardrails chỉ quét nội dung trước hành động ghi của cấp 4 | ~−240 đến −320 (30-40% của 792) | Giảm phủ H4 ở các cấp khác |
+| Ghi cache giảm một nửa | −265 | Phụ thuộc tái sử dụng |
+| Giữ global thay vì geo APAC | tránh +727 | Đánh đổi với H1 |
+| S3 Intelligent-Tiering cho workspace | chưa có số | Cần số liệu mức độ lạnh |
 
-- Theo nhóm: LLM 63,8%; nhân sự 21,5%; hạ tầng còn lại (không gồm LLM, nhân sự) 14,7% (~3.700).
-- Không tính nhân sự: 19.866,77.
+Nếu áp riêng "1 ảnh nháp": tổng 20.986,76 → 18.720,76. Rủi ro tăng cần dự phòng: lùi S2 +5.068, hit rate thấp hơn 10 điểm +952, token ra không cắt được +1.202, leo thang 30% +1.971, geo APAC +727.
 
-**5 hạng mục lớn nhất:** (1) Sonnet 5.5 token ra 7.920; (2) Sonnet 5.5 token vào 6.385,50; (3) SRE 1,0 FTE 3.500; (4) LLMOps 0,5 FTE 1.750; (5) sinh ảnh Titan 1.100. Ngay sau đó: Guardrails 792, RDS prod 787,67.
+## 6. Ảnh bằng chứng cần chụp tay (`evidence/INDEX.md`)
 
-**Đòn bẩy tiết kiệm đáng thử:**
-- Chuyển cấp 2-4 sang Haiku 5.5 (kịch bản S3 của A): tiết kiệm ~7.215/tháng, chỉ khi bộ eval H8 đạt. Đây là đòn bẩy lớn nhất, gấp ~10 lần mọi thứ khác.
-- Sonnet chiếm ~95% tiền token: thử cache tốt hơn (giả định hiện 50% đọc) và rút gọn prompt cấp 4.
-- Ảnh cấp 5: Nova Canvas ở Tokyo đắt gấp 4 (4.400 so với 1.100), nên Titan us-west-2 rẻ nhưng vướng H1.
-- Guardrails 792: chỉ áp cho nội dung connector trước hành động ghi, không áp cho mọi prompt.
-- Giảm nhân sự (0,5 FTE LLMOps ghép với SRE) là phép tính của người dùng, đang chiếm 21,5%.
-- Contingency 35 USD chỉ tính trên hạ tầng phần C; token LLM ±30% (~±4.800) không có dự phòng.
+Tổng 61 mã, **toàn bộ "chưa chụp"**. Chỉ có người dùng chụp được. Hai bảng dưới đây là phần cần xử lý trước hạn nộp:
 
-## 5. Câu hỏi mở (chỉ người dùng quyết được)
+| Phần | Số mã | Khoảng mã | Mã `CHƯA CÓ BẰNG CHỨNG` trên trang (số Singapore chỉ trong JSON) | Việc chụp |
+|---|---|---|---|---|
+| C (tu) | 20 | E01-E19, E39 | 15 | Fargate, ALB, WAF, NAT, PrivateLink, data transfer, RDS, S3, CloudWatch... Thứ tự chụp đề xuất ở cuối INDEX: E01-E06, E08, E10, E12, rồi E09/E17-E19, rồi E11/E13-E16/E39 |
+| A (tai) | 17 | E20-E38 (trừ E34, E37) | 7 | Bedrock: Haiku/Sonnet/Opus 5.5, Cohere Embed, Stable Image Core, Fargate, models-region, prompt caching, cross-Region, data protection, quotas |
+| B (long) | 24 | E40-E63 | 11 | Lambda, ElastiCache, SQS, Cognito, Verified Permissions, KMS, Secrets Manager, Guardrails (E57-E60), S3 Object Lock, RDS |
+| **Cộng** | **61** | | **33** | |
 
-1. Chấp nhận Bedrock hồ sơ "global" (rẻ hơn ~10%, xử lý ở region bất kỳ) hay hồ sơ geo APAC (+~1.500/tháng) để thỏa H1?
-2. Chọn model tham chiếu H8 (đề xuất Sonnet 5.5) và có chấp nhận chạy Haiku 5.5 cho cấp 1-2 không?
-3. Titan Image ở us-west-2 (H1, chỉ gửi mô tả văn bản) hay Nova Canvas Tokyo (gấp 4 giá)?
-4. Guardrails Standard (hỗ trợ tiếng Việt, bắt buộc cross-region) có chấp nhận không?
-5. Mức ops_labor: lương tham khảo 2.700 USD/tháng, 1,0 + 0,5 FTE có tính vào báo giá không? (đề cho phép, nhưng chiếm 21,5%)
-6. Contingency: 5% chỉ trên hạ tầng hay thêm dự phòng cho token LLM?
-7. Thời hạn lưu dữ liệu và chính sách phân loại (H5).
-8. Tách riêng hay dùng chung NAT/DB staging với prod.
+Quy tắc xử lý: nếu trang giá không hiện Singapore, lưu một bản **Pricing Calculator** (https://calculator.aws) và dán link vào cột Bằng chứng; dòng nào chưa có ảnh/link phải coi là CHƯA CÓ BẰNG CHỨNG khi trình bày. Thêm ngoài INDEX: console Bedrock (model access, quota Singapore), Guardrails Standard (vùng đích cross-Region), kết quả đo p95 TTFT, diễn tập failover.
 
-## 6. Ảnh bằng chứng cần chụp tay
+## 7. Câu hỏi mở (chỉ người dùng quyết được)
 
-- Trang giá chính thức (tên dịch vụ, SKU, region, đơn giá) cho mọi dịch vụ: Bedrock (Claude Haiku/Sonnet 5.5 ap-southeast-1, E-A1/E-A2), Titan Embeddings (E-A3), Titan Image us-west-2 (E-A4), Fargate (E-A5, E01); ALB (E02), WAF (E03), NAT (E04), PrivateLink (E05), data transfer (E06), Route 53 (E07), RDS (E08, E09), S3 (E10), ECR (E11), CloudWatch (E12), GitHub Actions/Team (E13, E14); Lambda, ElastiCache, SQS, Cognito, Verified Permissions, KMS, Secrets Manager, Guardrails (B).
-- Console Bedrock: Model access và quota (tokens/phút) cho Haiku/Sonnet 5.5 ở Singapore.
-- Console Bedrock Guardrails: tầng Standard, hành vi cross-region.
-- Pricing Calculator đã lưu (xuất PDF) cho toàn bộ báo giá.
-- Kết quả đo: p95 TTFT (k6/Locust 600 phiên, 4,2 req/s), diễn tập failover RDS, khôi phục DR (nếu làm kịp).
+1. H1: chấp nhận Bedrock hồ sơ **global** (rẻ hơn) hay geo APAC (+727/tháng cho token; gọi từ Sydney/Tokyo)? Chấp nhận Guardrails Standard cross-Region (cần cho tiếng Việt)?
+2. Ảnh cấp 5: gọi Stable Image Core ở us-west-2 (chỉ gửi mô tả văn bản)? Giữ 2 ảnh hay 1 ảnh nháp (−2.266)?
+3. Chốt model tham chiếu H8 (đề xuất Sonnet 5.5) và có nộp S3 hay S2 (S3 rẻ hơn 5.068 nhưng chưa đo; nếu không kịp đo thì nộp S2 để chắc điểm)?
+4. Có tính nhân sự 1,5 FTE (5.450) vào báo giá không, và có giữ LLMOps 0,5 FTE không (−1.750)?
+5. Dự phòng: giữ 5% chỉ trên hạ tầng (35,27) hay thêm dự phòng cho token/ảnh?
+6. Thời hạn lưu dữ liệu và chính sách phân loại (H5).
+7. DR: chấp nhận RTO ước tính 3-4 giờ sát ngưỡng 4 giờ, hay tăng chi phí cho pilot light chạy sẵn?
 
-## 7. Ba điểm chưa chắc lớn nhất
+## 8. Ba điểm chưa chắc lớn nhất
 
-1. Giá trong báo giá lấy từ Price List JSON chính thức, **chưa mở và chụp trang web**; khối lượng token, cache, log là giả định.
-2. H6 và H8 chưa có số đo (quota Bedrock, chất lượng Haiku so với Sonnet, p95 TTFT).
-3. H1: hồ sơ global, Guardrails cross-region, ảnh ở Mỹ cần người dùng quyết.
+1. Haiku cho cấp 2-4 và mức cắt token ra chưa đo (H8): quyết định ~5.000-7.000 USD/tháng.
+2. 33 trong 61 mã bằng chứng thiếu số Singapore trên trang; mọi ảnh chưa chụp.
+3. H1: global profile, Guardrails cross-Region và ảnh ở Mỹ; H6 chưa đo quota Bedrock.
 
 TRẠNG THÁI: XONG

@@ -111,7 +111,7 @@ Chi phí diễn tập đã tính trong dòng "Diễn tập khôi phục" (76 gi�
 | App: xác thực JWT, nạp phiên | 20-50 ms | Redis/Valkey cache |
 | Embedding câu hỏi (Cohere Embed Multilingual, Singapore, E26) | 100-250 ms | chạy song song với phân loại cấp tác vụ |
 | Truy vấn pgvector + RLS | 30-120 ms | HNSW, lọc quyền trong truy vấn |
-| Rerank (nếu có) | 150-400 ms | **bỏ ở cấp 1** nếu thiếu ngân sách |
+| ~~Rerank~~ | không tính | **Không nằm trong thiết kế baseline**: phần A không đưa rerank vào báo giá (Amazon Rerank không có ở Singapore). Tổng bên dưới không gồm rerank. Nếu sau này thêm (phần A ước ~660 USD/tháng nếu 60% request) thì cộng thêm khoảng 150-400 ms vào cấp có dùng, và phải đo lại H6 |
 | Guardrail đầu vào | 100-300 ms | Bedrock Guardrails hoặc regex/Presidio cục bộ (phần B) |
 | Gateway LiteLLM | 10-50 ms | |
 | Token đầu từ model nhỏ (lớp Haiku) | 600-1.500 ms | |
@@ -123,7 +123,7 @@ Chi phí diễn tập đã tính trong dòng "Diễn tập khôi phục" (76 gi�
 Điểm nghẽn có thể có, theo mức nguy hiểm:
 1. **Quota Bedrock (nguy hiểm nhất).** Burst ≈ 43.000 token vào/giây ≈ 2,6 triệu token/phút. Hạn mức mặc định của Claude 5.5 ở Singapore: **CHƯA CÓ BẰNG CHỨNG** (trang quotas, E38 của phần A, chưa đọc); chỉ biết là thường thấp hơn nhiều. Nếu bị throttling, TTFT vọt lên và request thất bại. Việc cần làm: xin tăng quota từ sớm, dùng inference profile cross-region, giảm token vào bằng prompt cache, và gateway có hàng đợi + fallback sang model khác.
 2. Claude 5.5 ở Singapore chỉ có hồ sơ Global (E26) nên request có thể được xử lý ở region khác, thêm RTT và độ lệch; ảnh cấp 5 gọi sang us-west-2 (không nằm trên đường chat nên không tính vào H6).
-3. Rerank và guardrail đặt nối tiếp. Cách xử lý: chạy song song embedding với kiểm guardrail, bỏ rerank cấp 1, stream trạng thái "đang tìm tài liệu" ngay để người dùng thấy phản hồi.
+3. Embedding và guardrail đặt nối tiếp (không có rerank trong baseline). Cách xử lý: chạy song song embedding với kiểm guardrail, stream trạng thái "đang tìm tài liệu" ngay để người dùng thấy phản hồi.
 4. RDS/pgvector nghẽn khi 600 phiên cùng truy vấn: dùng pool kết nối (RDS Proxy hoặc pgbouncer), HNSW đủ RAM.
 5. Cold start: sàn ngoài giờ 2 task; giờ cao điểm scale theo lịch 07:30 để task đã nóng trước 8:00 (Fargate khởi động 1-2 phút).
 6. Không dùng mô hình suy luận dài (kiểu R1) cho chat tương tác; vi phạm H6.
@@ -256,7 +256,7 @@ sequenceDiagram
 | Stable Image Core chỉ ở us-west-2 (phần A, E26) | Ảnh đi qua NAT tới `bedrock-runtime.us-west-2`; ~57 GB/tháng qua NAT | **+3,36** (đã cộng vào network) |
 | Phí truyền dữ liệu ra từ us-west-2 cho phản hồi Bedrock | **CHƯA CÓ BẰNG CHỨNG** (chưa thấy trang nào nói AWS tính hay không) | Không cộng; nếu tính 0,09 USD/GB thì tối đa +5,10 |
 | Claude 5.5 ở Sydney khi DR | Haiku 5.5 và Sonnet 5.5: ap-southeast-2 có Geo và Global (E26) | 0 |
-| Cohere Embed Multilingual ở Sydney, Opus ở Sydney | **CHƯA CÓ BẰNG CHỨNG** (chưa đọc được phần bảng) | chưa tính |
+| Cohere Embed Multilingual dùng ở **Singapore** (thống nhất với phần A, E26 của A: in-region ap-southeast-1) | Theo phần A; tôi chưa tự đọc lại bảng. Khi DR sang Sydney, Cohere Embed Multilingual (và Opus) ở ap-southeast-2: **chưa kiểm**, chưa có bằng chứng; nếu không có thì embedding phải gọi sang region khác hoặc đổi model, và vector đã lập chỉ mục phải cùng model | chưa tính |
 | Failover RDS 60-120 giây, ElastiCache 30-60 giây | **CHƯA CÓ BẰNG CHỨNG** (đã rút câu "theo tài liệu AWS") | 0, ảnh hưởng RTO |
 | Hạn mức Bedrock cho 2,6 triệu token/phút | **CHƯA CÓ BẰNG CHỨNG** (E38 của phần A chưa đọc) | rủi ro H6, không tính tiền |
 | GitHub Team 4 USD/người | Trang ghi "first 12 months" | chưa rõ; ảnh hưởng tối đa vài USD (3 seat) |
