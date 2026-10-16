@@ -6,10 +6,10 @@ Ngày tra giá: **2026-10-16**. Region mặc định: ap-southeast-1 (Singapore)
 
 1. **Nguồn giá và bằng chứng:** giá tính từ **bảng giá chính thức dạng JSON của AWS** (nguồn phụ để tính) và đối chiếu với các **trang người đọc mở được** (trang giá và tài liệu AWS, liệt kê ở mục 1 và sổ bằng chứng mục 9, mã E20-E38). **Chưa có ảnh nào** (agent không chụp được); mọi mã ảnh đang ở trạng thái `chưa chụp`. Các số chưa thấy được trên trang (giá Claude, Stable Image Core, Fargate) được đánh dấu `CHƯA CÓ BẰNG CHỨNG trên trang`.
 2. **Phát hiện lớn nhất:** ở Singapore, bảng giá chính thức **không có DeepSeek, Qwen** (chỉ có ở Sydney, Jakarta, Tokyo, Mumbai, Mỹ...). Trong khi **Claude Haiku 5.5 chỉ $0,10 / $0,50 mỗi triệu token** (vào / ra), rẻ hơn cả DeepSeek V3.2 ($0,64 / $1,91 ở Sydney). Vì vậy **hướng "model mở rẻ hơn" của bản nghiên cứu cũ không còn đúng**: đường chính nên là **Claude Haiku 5.5 + Sonnet 5.5 (+ Opus 5.5 khi cần), tất cả qua Bedrock**. Model mở chỉ giữ làm phương án so sánh.
-3. **Tiền LLM theo kịch bản được chọn (S3: leo thang 10%, cache theo cấp, token ra đã cắt có tính lượt hỏi lại): ~$7.275/tháng** (token). Bước 1 (S3 có leo thang): $9.129; bước 2 (cache theo cấp): $8.125; **bước 3 (cắt token ra, thực đo −10,5%, không phải 20%): $7.275**. **S3 chỉ được giữ nếu bộ test H8 đạt ≥95% ở mọi cấp**; nếu không thì lùi về S2 (~$12.343 với cùng mức cắt token ra). Baseline cũ trong xlsx: $40.780. **Sinh ảnh phải sửa lên $4.532/tháng** (trước đó ghi $1.100 theo Titan Image, nhưng trang tài liệu AWS không còn liệt kê Titan Image và Nova Canvas đã hết hạn 2026-09-30; mục 1.2). Tổng cột chi phí `baogia-A.tsv`: **$11.923,98** (bước 2: $9.325,33; bước 1: $10.329,00; ban đầu: $16.259,10).
+3. **Tiền LLM theo kịch bản được chọn (S3: leo thang 10%, cache theo cấp, token ra đã cắt có tính lượt hỏi lại): ~$7.275/tháng** (token). Bước 1 (S3 có leo thang): $9.129; bước 2 (cache theo cấp): $8.125; **bước 3 (cắt token ra, thực đo −10,5%, không phải 20%): $7.275**. **S3 chỉ được giữ nếu bộ test H8 đạt ≥95% ở mọi cấp**; nếu không thì lùi về S2 (~$12.343 với cùng mức cắt token ra). Baseline cũ trong xlsx: $40.780. **Sinh ảnh: $2.420/tháng** (ĐÃ CHỐT 55.000 request × 1,1 ảnh × $0,04 Stable Image Core; trước đó ghi $1.100 theo Titan Image, nhưng trang tài liệu AWS không còn liệt kê Titan Image và Nova Canvas đã hết hạn 2026-09-30; mục 1.2). Tổng cột chi phí `baogia-A.tsv`: **$9.811,98** (trước khi chốt ảnh 1,1/request: $11.923,98; bước 2: $9.325,33; bước 1: $10.329,00; ban đầu: $16.259,10).
 4. **Không nên tự host GPU**: máy GPU duy nhất định giá được ở Singapore (p4de.24xlarge) tốn $14.492–$48.087/tháng cho 2 máy, cao hơn tiền API cho toàn bộ lưu lượng với model mở ($4.055) và với kịch bản Haiku/Sonnet.
 5. **Gateway:** LiteLLM (bản mã nguồn mở) chạy Fargate ARM 2 task, **~$93,65/tháng** (2 task, 2 vCPU/4 GB giờ hành chính, 1 vCPU/2 GB ngoài giờ).
-6. **Cần quyết định của nhóm:** (a) chốt model tham chiếu H8 (đề xuất Sonnet 5.5), (b) chấp nhận Bedrock "global" (rẻ hơn ~10% nhưng xử lý ở region nào cũng được) hay "geo APAC" (+10%, ~+$1.500/tháng) cho H1.
+6. **ĐÃ CHỐT (người dùng):** (a) **Bedrock hồ sơ global cho Claude**; lý do H1: một cloud chính là AWS, region gọi API là **ap-southeast-1 (Singapore)**; theo tài liệu AWS dữ liệu đầu vào/ra không dùng để huấn luyện và không chia sẻ với nhà cung cấp model (FAQ Bedrock, E29), Claude Haiku/Sonnet/Opus 5.5 không nằm trong danh sách model bị lưu giữ ở trang abuse-detection (E29), mã hóa khi truyền (E28); (b) **ảnh cấp 5: 1 ảnh nháp mỗi request, trung bình 1,1 ảnh/request**; (c) **S3 là kịch bản nộp**: cấp 1 và cấp 2 chạy 100% Haiku 5.5, cấp 3-4 chạy 70% Haiku / 30% Sonnet 5.5, leo thang 10%; **model tham chiếu H8 là Sonnet 5.5**; điều kiện lùi S2 ở mục 3.
 
 ## 1. Xác minh giá và region trên trang chính thức
 
@@ -71,7 +71,7 @@ Nguồn phụ để tính (không thay cho trang): Price List JSON `https://pric
 | - Nova 2 Omni (xuất ảnh) | JSON: $0,0547 / 1K token ảnh ra, ap-southeast-1 global | Singapore (global) | Chưa biết một ảnh bằng bao nhiêu token, chưa kiểm chất lượng: **CHƯA CÓ BẰNG CHỨNG**, phương án cần thử |
 | Guardrails (cho Long) | nội dung/chủ đề $0,15 / 1K đơn vị văn bản; thông tin nhạy cảm $0,10 / 1K | ap-southeast-1 | Không thuộc phần A, chuyển Long |
 
-**Hệ quả:** ảnh phải gọi ở **us-west-2**. Gửi đi chỉ là mô tả văn bản; nếu mô tả có thể chứa dữ liệu nội bộ, cần che trước hoặc dùng phương án trong châu Á (hiện chỉ còn Nova 2 Omni, chưa đo). **Giá ảnh thực tế $0,04, gấp 4 lần Titan Image đã ghi ở bước trước; sinh ảnh giờ là dòng lớn thứ hai trong báo giá phần A ($4.532).**
+**Hệ quả:** ảnh phải gọi ở **us-west-2**. Gửi đi chỉ là mô tả văn bản; nếu mô tả có thể chứa dữ liệu nội bộ, cần che trước hoặc dùng phương án trong châu Á (hiện chỉ còn Nova 2 Omni, chưa đo). **Giá ảnh thực tế $0,04, gấp 4 lần Titan Image đã ghi ở bản đầu. ĐÃ CHỐT: chỉ 1 ảnh nháp mỗi request, trung bình 1,1 ảnh/request ⇒ 55.000 × 1,1 × $0,04 = $2.420/tháng.**
 
 ## 2. Định tuyến model theo 5 cấp
 
@@ -170,9 +170,9 @@ Ví dụ cấp 3: r = 0,95 × (2.000 + 0,5 × 6.000) / 10.000 = 47,5%; w = [0,05
 | 2 (đã loại) | "Viết dàn ý rồi mở rộng từng mục khi được yêu cầu" | Không dùng mặc định | 0 | Tài liệu dài ~30% request: dàn ý 350; 40% người dùng xin mở hết (1.200 + 350), 60% mở khoảng một nửa (350 + 600): trung bình 0,4 × 1.550 + 0,6 × 950 = **1.190 so với 1.200**, tức tiết kiệm <1% token ra mà thêm một lượt (kèm token vào) | Chỉ làm nút "dàn ý trước" tùy chọn |
 | 3 | 1.500 = mã 800 + giải thích 450 + chép lại kết quả chạy, định dạng lặp 250 | Lượt sửa lỗi trả **diff** thay vì cả file (50% request là lượt sửa tiếp, cùng giả định q = 0,5 ở mục 2.2b: 800 → 300 trên lượt đó); giải thích ≤ 3 câu (450 → 300); không chép lại output sandbox (250 → 100); `maxTokens` = 2.500 | **1.050 (−30%)** | −250 − 150 − 150 = −550 → 950; cộng +75 vì 10% diff không áp dụng được và phải viết lại cả file (0,5 × 0,10 × 1.500) → 1.025, làm tròn lên 1.050 | Diff lỗi, giải thích thiếu: hỏi lại +4% |
 | 4 | 4.000 = gọi công cụ 900 (6 bước × ~150) + suy nghĩ giữa bước 1.500 + trả lời cuối 1.000 (≈500 là chép lại kết quả công cụ) + nội dung ghi ra (ticket, trang) 600 | Suy nghĩ chỉ bật ở bước lập kế hoạch đầu và bước quyết định ghi (1.500 → 1.100); tham số công cụ gọn (chỉ ID và trường cần: 900 → 750); câu trả lời cuối là tóm tắt kèm liên kết, không chép kết quả công cụ (1.000 → 600) | **3.050 (−23,75%)** | −400 − 150 − 400 | Lập kế hoạch kém, agent hỏng giữa chừng, tăng lượt chạy lại +5%. **Cơ chế giới hạn token suy nghĩ của Claude 5.5 trên Bedrock chưa kiểm: CHƯA CÓ BẰNG CHỨNG**, nên mục tiêu này phụ thuộc cách làm được |
-| 5 | 1.500 = mô tả/mã sơ đồ 900 + prompt ảnh 2 × 150 + giải thích 300 | Giải thích ngắn (300 → 120); prompt ảnh ≤ 100 token (−100); **giữ nguyên** mã sơ đồ để không hại chất lượng; `maxTokens` = 2.500 | **1.220 (−18,7%)** | −180 − 100 | Mô tả ảnh nghèo nàn: hỏi lại +3% |
+| 5 | 1.500 = mô tả/mã sơ đồ 900 + prompt ảnh 2 × 150 + giải thích 300 | Giải thích ngắn (300 → 120); prompt ảnh ≤ 100 token (−100); **giữ nguyên** mã sơ đồ để không hại chất lượng (token ra cấp 5 giữ nguyên bảng này dù chỉ sinh 1,1 ảnh, nên là cận trên); `maxTokens` = 2.500 | **1.220 (−18,7%)** | −180 − 100 | Mô tả ảnh nghèo nàn: hỏi lại +3% |
 
-**Biên an toàn (đã tính vào số tiền):** mỗi tỉ lệ hỏi lại ở cột cuối được cộng như **một request đầy đủ** (cả token vào theo r, w của cấp lẫn token ra mới) cho cả hai model, và cả 113.300 ảnh (gồm lượt thêm). Không trừ lợi ích do lịch sử ngắn hơn làm token vào của lượt sau giảm (thận trọng).
+**Biên an toàn (đã tính vào số tiền):** mỗi tỉ lệ hỏi lại ở cột cuối được cộng như **một request đầy đủ** (cả token vào theo r, w của cấp lẫn token ra mới) cho cả hai model, (riêng ảnh tính theo 1,1 ảnh/request đã chốt, không nhân thêm lượt hỏi lại). Không trừ lợi ích do lịch sử ngắn hơn làm token vào của lượt sau giảm (thận trọng).
 
 | Cấp | Tiền bước 2 | Chỉ cắt token ra (không hỏi lại) | Cắt token ra + hỏi lại | **Chênh so với bước 2** |
 |---|---|---|---|---|
@@ -219,10 +219,10 @@ Ví dụ cấp 3: r = 0,95 × (2.000 + 0,5 × 6.000) / 10.000 = 47,5%; w = [0,05
 | Giá token +30% | $9.457 | +$2.182 |
 | Dùng geo APAC thay global (+10%) | $8.002 | +$727 |
 | Lùi về S2 (nếu H8 không đạt; cùng cắt token ra, cache theo cấp) | $12.343 | +$5.068 |
-| Sinh ảnh giảm 2 → 1 ảnh/request (Stable Image Core, $0,04) | ảnh $4.532 → $2.266 | −$2.266 |
+| Sinh ảnh (Stable Image Core, $0,04): 1,1 ảnh/request (ĐÃ CHỐT) so với 2 ảnh/request (mức cũ) | ảnh $2.420 → $4.400 | +$1.980 |
 | DAU gấp đôi (4.000) | ~$14.550 token (tuyến tính) | +$7.275; gateway gần như cố định |
 
-Nhận xét: **cấp 4 (~57% tiền token) và cấp 3 (~22%) quyết định hóa đơn**; Sonnet chiếm 87% tiền token. Rủi ro hit rate: nếu cache hết hạn nhiều hơn dự kiến, tiền tăng $0,75–1,9 nghìn mỗi 10–20 điểm, **nhỏ hơn rủi ro leo thang và rủi ro H8**. **Dòng lớn thứ hai của báo giá phần A là sinh ảnh ($4.532), lớn hơn mọi biện pháp ở bước 2 và 3**; đòn bẩy tốt nhất cho ảnh là số ảnh mỗi request. Từ S2 sang S3 tiết kiệm $5.068/tháng **sau khi đã tính leo thang, cache theo cấp và cắt token ra**; mọi chuyển đổi **phải có số đo H8 (mục 3)** mới được tính.
+Nhận xét: **cấp 4 (~57% tiền token) và cấp 3 (~22%) quyết định hóa đơn**; Sonnet chiếm 87% tiền token. Rủi ro hit rate: nếu cache hết hạn nhiều hơn dự kiến, tiền tăng $0,75–1,9 nghìn mỗi 10–20 điểm, **nhỏ hơn rủi ro leo thang và rủi ro H8**. Sinh ảnh còn $2.420/tháng sau khi chốt 1,1 ảnh/request; số ảnh mỗi request là đòn bẩy duy nhất của dòng này. Từ S2 sang S3 tiết kiệm $5.068/tháng **sau khi đã tính leo thang, cache theo cấp và cắt token ra**; mọi chuyển đổi **phải có số đo H8 (mục 3)** mới được tính.
 
 ### 2.4 Giả định trong `uoc-luong-tai.xlsx` nên sửa (Tài không sửa file; đề xuất cho Tú)
 
@@ -239,7 +239,7 @@ Nhận xét: **cấp 4 (~57% tiền token) và cấp 3 (~22%) quyết định h�
 
 ## 3. Cách đo chất lượng H8 ("≥95% điểm của model tham chiếu")
 
-**Model tham chiếu (đề xuất, cả nhóm cần chốt): Claude Sonnet 5.5**, cùng cấu hình (global profile, cùng prompt) cho cả 5 cấp. Lý do: là model "mặc định hợp lý" mà một tập đoàn sẽ chọn nếu không tối ưu chi phí ($28k/tháng, hàng S6). Bổ sung để chống bị chất vấn "tham chiếu quá yếu": chạy thêm Opus 5.5 một lần trên cấp 4 và cấp 5, báo cáo tỉ lệ so với Opus.
+**Model tham chiếu: Claude Sonnet 5.5 (ĐÃ CHỐT)**, cùng cấu hình (global profile, cùng prompt) cho cả 5 cấp. Lý do: là model "mặc định hợp lý" mà một tập đoàn sẽ chọn nếu không tối ưu chi phí ($28k/tháng, hàng S6). Bổ sung để chống bị chất vấn "tham chiếu quá yếu": chạy thêm Opus 5.5 một lần trên cấp 4 và cấp 5, báo cáo tỉ lệ so với Opus.
 
 **Quy trình:** mỗi cấp có hai bộ: *bộ chỉnh* (tuning, để chọn tỉ lệ định tuyến) và *bộ kiểm giữ lại* (held-out, chỉ chạy một lần để báo cáo). Điểm của mỗi item chuẩn hóa 0–1. Mỗi cấp: **R = trung bình điểm hệ thống định tuyến / trung bình điểm model tham chiếu** trên cùng item (ghép cặp), kèm khoảng tin cậy bootstrap 95% (1.000 lần lấy mẫu lại).
 
@@ -262,8 +262,9 @@ Nhận xét: **cấp 4 (~57% tiền token) và cấp 3 (~22%) quyết định h�
 **Điều kiện giữ S3 và cách lùi:**
 - S3 chỉ được giữ nếu **R ≥ 0,95 trên bộ giữ lại ở cả cấp 1-5** (với cấp 2: 100% Haiku; cấp 3-4: hệ thống 70/30 có leo thang, đo cả pipeline chứ không đo riêng Haiku).
 - Đo thêm ba số cho cấp 3 và 4 trên bộ chỉnh: (1) **tỉ lệ lượt Haiku trượt kiểm tra tự động** (unit test cấp 3; kiểm tra trạng thái cuối cấp 4) → thay cho giả định 10%; (2) tỉ lệ cấp 4 vượt 10 phút khi tính cả chạy lại; (3) điểm của hệ thống so với Sonnet 100%.
-- **Quy tắc lùi:** cấp nào R < 0,95 thì chuyển cấp đó về cấu hình S2 (cấp 2: 70/30; cấp 3: 100% Sonnet; cấp 4: 50/50), rồi đo lại một lần. Nếu tỉ lệ leo thang đo được > 30% thì lùi cả cấp 3-4 về S2, vì S3 chỉ còn rẻ hơn $3.360 mà tăng rủi ro.
-- Báo giá hiện ghi S3. Nếu không kịp đo trong buổi học: nói rõ với hội đồng tỉ lệ Haiku/leo thang là **giả định chưa đo** và nêu sẵn S2 ($12.343) là phương án lùi; hoặc nộp S2 để chắc điểm chất lượng.
+- **Quy tắc lùi:** cấp nào R < 0,95 thì chuyển cấp đó về cấu hình S2 (cấp 2: 70/30; cấp 3: 100% Sonnet; cấp 4: 50/50), rồi đo lại một lần. Nếu tỉ lệ leo thang đo được > 30% thì lùi cả cấp 3-4 về S2, vì S3 (leo thang 30%: $9.246) chỉ còn rẻ hơn S2 ($12.343) $3.097 mà tăng rủi ro.
+- **ĐÃ CHỐT: báo giá nộp ghi S3** (cấp 1, 2 = 100% Haiku 5.5; cấp 3-4 = 70% Haiku / 30% Sonnet 5.5; leo thang 10%); **model tham chiếu H8 = Sonnet 5.5**. Nếu không kịp đo trong buổi học: nói rõ với hội đồng tỉ lệ Haiku/leo thang là **giả định chưa đo** và nêu sẵn S2 làm phương án lùi.
+- **Điều kiện lùi S2 và con số chênh** (tiền token LLM mỗi tháng, cùng cache theo cấp và token ra đã cắt; S2: cấp 2 = 70% Haiku / 30% Sonnet, cấp 3 = 100% Sonnet, cấp 4 = 50/50): lùi **từng cấp** khi R của cấp đó < 0,95 trên bộ giữ lại. Chênh so với S3: cấp 2 **+$1.514** ($269 → $1.783), cấp 3 **+$2.343** ($1.600 → $3.943), cấp 4 **+$1.211** ($4.123 → $5.334); lùi cả ba cấp **+$5.068** (tổng token $7.275 → $12.343; tổng cột `baogia-A.tsv` $9.811,98 → khoảng $14.880 sau khi cập nhật các dòng token). Cấp 1 và cấp 5 không đổi giữa S2 và S3.
 
 **Việc chưa làm:** **chưa có bộ câu hỏi nào được viết, chưa chạy lần nào**.
 
@@ -305,7 +306,7 @@ Nhận xét: **cấp 4 (~57% tiền token) và cấp 3 (~22%) quyết định h�
 
 ## 5. Gateway
 
-**Đề xuất: LiteLLM Proxy (mã nguồn mở), chạy trên Fargate ARM, 2 task ở 2 AZ sau ALB** (ALB thuộc phần Tú).
+**LiteLLM Proxy (mã nguồn mở), chạy trên Fargate ARM, 2 task ở 2 AZ sau ALB** (ALB thuộc phần Tú).
 
 | Phương án | Ưu | Nhược | Chi phí |
 |---|---|---|---|
@@ -322,7 +323,7 @@ Chọn LiteLLM vì đề yêu cầu quota theo người và đơn vị (H8) và 
 
 Đây là dòng `gateway` duy nhất cho LiteLLM; **dòng "LLM gateway" trong `compute` của Tú phải bỏ để không tính trùng** (quyết định của điều phối). Postgres và Redis của LiteLLM "nằm trong" `database` và `cache_queue` (Long); thêm log chi tiêu 1,1 triệu dòng/tháng vào dung lượng database.
 
-**Quota, giới hạn, fallback (đề xuất cấu hình):**
+**Quota, giới hạn, fallback (cấu hình thiết kế):**
 - Theo người: 40 request/giờ, 200 request/ngày (trần ~8 lần mức trung bình 25/ngày), ngân sách token theo ngày; cấp 4 tối đa 3 agent đồng thời.
 - Theo đơn vị (nhóm/phòng ban): ngân sách tháng; cảnh báo ở 50%, 80%, 100% (AWS Budgets + cảnh báo LiteLLM); ở 80% tự hạ cấp 2-3 sang Haiku, ở 100% chặn các request không cấp 1 (trả HTTP 429 kèm thông báo), quản trị viên có thể nâng trần.
 - Giới hạn toàn hệ thống: theo hạn mức token/phút của Bedrock. **Chưa kiểm hạn mức mặc định** của tài khoản (ước tính burst ~2,6 triệu token vào/phút trước cache; thường phải gửi yêu cầu tăng hạn mức trước khi chạy thật). Token đọc từ cache không tính vào hạn mức (tài liệu AWS), thêm một lý do để cache tốt.
@@ -351,7 +352,7 @@ Chọn LiteLLM vì đề yêu cầu quota theo người và đơn vị (H8) và 
 
 1. Chụp ảnh bằng chứng theo sổ mục 9 (mã E20-E38): ưu tiên E20, E21 (giá Claude ở Singapore; nếu trang không hiện bảng Claude thì dùng AWS Pricing Calculator và lưu link), E24 (Stable Image Core), E23, E25, E26, E27, E29. Mỗi ảnh phải thấy tên dịch vụ, SKU, region, đơn giá, ngày.
 2. Vào console Bedrock ở ap-southeast-1: kiểm Model access và Inference profiles (Haiku 5.5, Sonnet 5.5, Opus 5.5), xem hạn mức token/phút; chụp lại.
-3. Cả nhóm quyết: model tham chiếu H8 (Sonnet 5.5?), global hay geo APAC, và xác nhận S3 (TSV đang ghi S3 có leo thang 10%) hay lùi về S2 sau khi có số đo H8.
+3. **ĐÃ CHỐT**, không còn việc quyết: model tham chiếu H8 = Sonnet 5.5; Bedrock global ở ap-southeast-1; S3 là kịch bản nộp (TSV ghi S3, leo thang 10%, ảnh 1,1/request). Việc còn lại là đo H8 và, nếu có cấp không đạt ≥95%, lùi theo mục 3.
 
 ## 9. Sổ bằng chứng phần A (mã E20–E38; chép vào `evidence/INDEX.md` của Tú, vì Tài không sửa file đó)
 
